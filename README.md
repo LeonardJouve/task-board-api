@@ -3,7 +3,9 @@
 Go API for [task-board-webapp](https://github.com/LeonardJouve/task-board-webapp)
 
 ## Usage
-`go run main.go`
+`cp .env.example .env`
 
-Using [air](github.com/cosmtrek/air) for hot reloading (`go install github.com/cosmtrek/air@latest`)
-`air`
+Fill `.env`
+
+
+`go run main.go` or using [air](github.com/cosmtrek/air) for hot reloading (`go install github.com/cosmtrek/air@latest`) `air`
