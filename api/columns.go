@@ -1,6 +1,9 @@
 package api
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/LeonardJouve/task-board-api/store/models"
 	"github.com/gofiber/fiber/v2"
@@ -10,8 +13,6 @@ func columns(c *fiber.Ctx) error {
 	switch c.Method() {
 	case "GET":
 		return getColumns(c)
-	case "PUT":
-		return getColumnsInBoards(c)
 	case "POST":
 		return createColumn(c)
 	default:
@@ -23,28 +24,24 @@ func columns(c *fiber.Ctx) error {
 
 func getColumns(c *fiber.Ctx) error {
 	var columns []models.Column
-	store.Database.Find(&columns)
+	query := store.Database
 
-	return c.Status(fiber.StatusOK).JSON(columns)
-}
+	if len(c.Query("boardIds")) != 0 {
+		var boardIds []uint
+		for _, id := range strings.Split(c.Query("boardIds"), ",") {
+			columnId, err := strconv.ParseUint(id, 10, 64)
+			if err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"message": err.Error(),
+				})
+			}
+			boardIds = append(boardIds, uint(columnId))
+		}
 
-func getColumnsInBoards(c *fiber.Ctx) error {
-	var params struct {
-		BoardIds []uint `json:"boardIds" validate:"required"`
-	}
-	if err := c.BodyParser(&params); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-	if err := validate.Struct(params); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+		query = query.Where("board_id IN ?", boardIds)
 	}
 
-	var columns []models.Column
-	store.Database.Where("board_id IN ?", params.BoardIds).Find(&columns)
+	query.Find(&columns)
 
 	return c.Status(fiber.StatusOK).JSON(columns)
 }
