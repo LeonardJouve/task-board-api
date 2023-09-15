@@ -1,5 +1,0 @@
-github.com/go-sql-driver/mysql v1.7.1 h1:lUIinVbN1DY0xBg0eMOzmmtGoHwWBbvnWubQUrtU8EI=
-github.com/go-sql-driver/mysql v1.7.1/go.mod h1:OXbVy3sEdcQ2Doequ6Z5BW6fXNQTmx+9S1MCJN5yJMI=
-github.com/gofiber/storage/mysql v1.3.7 h1:yGYI7nnzaTE4o+nu3I4B1bL7KBTOolCjQMjCiWmdqz0=
-github.com/gofiber/storage/mysql v1.3.7/go.mod h1:I4oWq/j6rp2mXkQwzQMJLhXLKupJzAJLlDDf5zm0ETo=
-github.com/gofiber/utils v1.1.0 h1:vdEBpn7AzIUJRhe+CiTOJdUcTg4Q9RK+pEa0KPbLdrM=

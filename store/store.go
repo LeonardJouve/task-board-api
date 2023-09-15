@@ -1,26 +1,35 @@
 package store
 
 import (
+	"fmt"
 	"os"
-	"strconv"
-	"time"
 
-	"github.com/gofiber/storage/mysql"
+	"github.com/LeonardJouve/task-board-api/store/models"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-func New() *mysql.Storage {
-	port, err := strconv.Atoi(os.Getenv("DB_PORT"))
+var Database *gorm.DB
+
+func New() error {
+	DB, err := gorm.Open(mysql.Open(fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		os.Getenv("DB_USERNAME"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_NAME"),
+	)), &gorm.Config{})
+
+	Database = DB
+
 	if err != nil {
-		return nil
+		return err
 	}
 
-	return mysql.New(mysql.Config{
-		Host:       os.Getenv("DB_HOST"),
-		Port:       port,
-		Database:   os.Getenv("DB_NAME"),
-		Username:   os.Getenv("DB_USERNAME"),
-		Password:   os.Getenv("DB_PASSWORD"),
-		Reset:      false,
-		GCInterval: 10 * time.Second,
-	})
+	Database.AutoMigrate(&models.Board{})
+	Database.AutoMigrate(&models.Column{})
+	Database.AutoMigrate(&models.Card{})
+	Database.AutoMigrate(&models.Tag{})
+
+	return nil
 }

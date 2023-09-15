@@ -1,13 +1,14 @@
 package main
 
 import (
-	"leonardjouve/api"
-	"leonardjouve/auth"
-	"leonardjouve/dotenv"
-	"leonardjouve/store"
+	"fmt"
 	"os"
 	"strings"
 
+	"github.com/LeonardJouve/task-board-api/api"
+	"github.com/LeonardJouve/task-board-api/auth"
+	"github.com/LeonardJouve/task-board-api/dotenv"
+	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -19,16 +20,15 @@ func main() {
 	oldEnv := dotenv.Load(env)
 	defer oldEnv.Restore()
 
-	app := fiber.New()
-
-	s := store.New()
-	if s == nil {
-		panic("Unable to connect to the database")
+	if err := store.New(); err != nil {
+		panic(err.Error())
 	}
+
+	app := fiber.New()
 
 	app.All("/*", router)
 
-	err = app.Listen(os.Getenv("HOST") + ":" + os.Getenv("PORT"))
+	err = app.Listen(fmt.Sprintf("%s:%s", os.Getenv("HOST"), os.Getenv("PORT")))
 	if err != nil {
 		panic(err.Error())
 	}
