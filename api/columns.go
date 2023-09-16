@@ -15,6 +15,12 @@ func columns(c *fiber.Ctx) error {
 		return getColumns(c)
 	case "POST":
 		return createColumn(c)
+	case "PUT":
+		return updateColumn(c)
+	case "PATCH":
+		return moveColumn(c)
+	case "DELETE":
+		return deleteColumn(c)
 	default:
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",
@@ -69,11 +75,126 @@ func createColumn(c *fiber.Ctx) error {
 	}
 
 	var previous models.Column
-	store.Database.Model(models.Column{NextID: nil}).First(&previous)
+	store.Database.Where("next_id IS NULL AND board_id = ? AND id != ?", column.BoardID, column.ID).First(&previous)
 	if previous.ID != 0 {
 		previous.NextID = &column.ID
 		store.Database.Save(&previous)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(column)
+}
+
+func updateColumn(c *fiber.Ctx) error {
+	var column models.Column
+
+	if err := c.BodyParser(&column); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+	if err := validate.Struct(column); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	var currentColumn models.Column
+	store.Database.First(&currentColumn, column.ID)
+	if currentColumn.ID == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+
+	store.Database.Model(&models.Column{}).Where("id = ?", column.ID).Omit("NextID").Updates(&column)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "ok",
+	})
+}
+
+func moveColumn(c *fiber.Ctx) error {
+	paths := strings.Split(c.Path(), "/")
+	if len(paths) < 5 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+	if paths[3] != "move" {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+
+	nextId := c.QueryInt("nextId")
+	columnId, err := strconv.ParseUint(paths[4], 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+	var column models.Column
+	store.Database.First(&column, columnId)
+	if column.ID == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+
+	store.Database.Model(&models.Column{}).Where("next_id = ?", column.ID).Update("next_id", column.NextID)
+	if nextId <= 0 {
+		store.Database.Model(&models.Column{}).Where("next_id IS NULL").Update("next_id", &column.ID)
+		store.Database.Model(&column).Update("next_id", nil)
+	} else {
+		var previous models.Column
+		store.Database.Find(&previous, nextId)
+		if previous.ID == 0 {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"message": "not found",
+			})
+		}
+
+		store.Database.Model(&models.Column{}).Where("next_id = ?", nextId).Update("next_id", &column.ID)
+		store.Database.Model(&column).Update("next_id", nextId)
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "ok",
+	})
+}
+
+func deleteColumn(c *fiber.Ctx) error {
+	paths := strings.Split(c.Path(), "/")
+	if len(paths) < 4 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+	columnId, err := strconv.ParseUint(paths[3], 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+
+	var column models.Column
+	store.Database.First(&column, columnId)
+	if column.ID == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+
+	store.Database.Unscoped().Where("column_id = ?", columnId).Delete(&[]models.Card{})
+
+	var previous models.Column
+	if store.Database.Where("next_id = ?", columnId).First(&previous); previous.ID != 0 {
+		previous.NextID = column.NextID
+		store.Database.Save(&previous)
+	}
+	store.Database.Unscoped().Delete(&column)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "ok",
+	})
 }

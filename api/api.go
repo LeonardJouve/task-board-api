@@ -1,9 +1,9 @@
 package api
 
 // TODO
-// - Remove (update NextId / dependencies)
 // - Auth
 // - Filter response with allowed ressources only
+// - Websocket
 
 import (
 	"strings"
