@@ -1,8 +1,7 @@
 package api
 
 // TODO
-// - Auth
-// - Filter response with allowed ressources only
+// - Move card must update columnId
 // - Websocket
 
 import (

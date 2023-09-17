@@ -35,19 +35,23 @@ func getColumns(c *fiber.Ctx) error {
 	if len(c.Query("boardIds")) != 0 {
 		var boardIds []uint
 		for _, id := range strings.Split(c.Query("boardIds"), ",") {
-			columnId, err := strconv.ParseUint(id, 10, 64)
+			boardId, err := strconv.ParseUint(id, 10, 64)
 			if err != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 					"message": err.Error(),
 				})
 			}
-			boardIds = append(boardIds, uint(columnId))
+			boardIds = append(boardIds, uint(boardId))
 		}
 
 		query = query.Where("board_id IN ?", boardIds)
 	}
 
-	query.Find(&columns)
+	userBoardIds, err := getUserBoardIds(c)
+	if err != nil {
+		return err
+	}
+	query.Where("board_id IN ?", userBoardIds).Find(&columns)
 
 	return c.Status(fiber.StatusOK).JSON(columns)
 }
@@ -63,6 +67,10 @@ func createColumn(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
 		})
+	}
+
+	if _, err := getUserBoard(c, column.BoardID); err != nil {
+		return err
 	}
 
 	result := store.Database.Create(&column)
@@ -85,7 +93,6 @@ func createColumn(c *fiber.Ctx) error {
 
 func updateColumn(c *fiber.Ctx) error {
 	var column models.Column
-
 	if err := c.BodyParser(&column); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
@@ -97,15 +104,12 @@ func updateColumn(c *fiber.Ctx) error {
 		})
 	}
 
-	var currentColumn models.Column
-	store.Database.First(&currentColumn, column.ID)
-	if currentColumn.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+	_, err := getUserColumn(c, column.ID)
+	if err != nil {
+		return err
 	}
 
-	store.Database.Model(&models.Column{}).Where("id = ?", column.ID).Omit("NextID").Updates(&column)
+	store.Database.Model(&column).Omit("NextID", "BoardID").Updates(&column)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",
@@ -132,12 +136,9 @@ func moveColumn(c *fiber.Ctx) error {
 			"message": err.Error(),
 		})
 	}
-	var column models.Column
-	store.Database.First(&column, columnId)
-	if column.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+	column, err := getUserColumn(c, uint(columnId))
+	if err != nil {
+		return err
 	}
 
 	store.Database.Model(&models.Column{}).Where("next_id = ?", column.ID).Update("next_id", column.NextID)
@@ -176,12 +177,9 @@ func deleteColumn(c *fiber.Ctx) error {
 		})
 	}
 
-	var column models.Column
-	store.Database.First(&column, columnId)
-	if column.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+	column, err := getUserColumn(c, uint(columnId))
+	if err != nil {
+		return err
 	}
 
 	store.Database.Unscoped().Where("column_id = ?", columnId).Delete(&[]models.Card{})

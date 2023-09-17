@@ -31,18 +31,22 @@ func getTags(c *fiber.Ctx) error {
 	if len(c.Query("boardIds")) != 0 {
 		var boardIds []uint
 		for _, id := range strings.Split(c.Query("boardIds"), ",") {
-			columnId, err := strconv.ParseUint(id, 10, 64)
+			boardId, err := strconv.ParseUint(id, 10, 64)
 			if err != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 					"message": err.Error(),
 				})
 			}
-			boardIds = append(boardIds, uint(columnId))
+			boardIds = append(boardIds, uint(boardId))
 		}
 		query = query.Where("board_id IN ?", boardIds)
 	}
 
-	query.Find(&tags)
+	userBoardIds, err := getUserBoardIds(c)
+	if err != nil {
+		return err
+	}
+	query.Where("board_id IN ?", userBoardIds).Find(&tags)
 
 	return c.Status(fiber.StatusOK).JSON(tags)
 }
@@ -58,6 +62,10 @@ func createTag(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
 		})
+	}
+
+	if _, err := getUserBoard(c, tag.BoardID); err != nil {
+		return err
 	}
 
 	result := store.Database.Create(&tag)
@@ -85,12 +93,9 @@ func deleteTag(c *fiber.Ctx) error {
 		})
 	}
 
-	var tag models.Tag
-	store.Database.First(&tag, tagId)
-	if tag.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+	tag, err := getUserTag(c, uint(tagId))
+	if err != nil {
+		return err
 	}
 
 	store.Database.Unscoped().Delete(&tag)

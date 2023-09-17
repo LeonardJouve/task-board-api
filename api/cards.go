@@ -47,7 +47,11 @@ func getCards(c *fiber.Ctx) error {
 		query = query.Where("column_id IN ?", columnIds)
 	}
 
-	query.Find(&cards)
+	userColumnIds, err := getUserColumnIds(c)
+	if err != nil {
+		return err
+	}
+	query.Where("column_id IN ?", userColumnIds).Find(&cards)
 
 	return c.Status(fiber.StatusOK).JSON(cards)
 }
@@ -64,6 +68,10 @@ func createCard(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
 		})
+	}
+
+	if _, err := getUserColumn(c, card.ColumnID); err != nil {
+		return err
 	}
 
 	result := store.Database.Create(&card)
@@ -97,15 +105,11 @@ func updateCard(c *fiber.Ctx) error {
 		})
 	}
 
-	var currentCard models.Card
-	store.Database.First(&currentCard, card.ID)
-	if currentCard.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+	if _, err := getUserCard(c, card.ID); err != nil {
+		return err
 	}
 
-	store.Database.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID").Updates(&card)
+	store.Database.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID", "ColumnID").Updates(&card)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",
@@ -124,20 +128,17 @@ func moveCard(c *fiber.Ctx) error {
 			"message": "not found",
 		})
 	}
-
-	nextId := c.QueryInt("nextId")
 	cardId, err := strconv.ParseUint(paths[4], 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
 		})
 	}
-	var card models.Card
-	store.Database.First(&card, cardId)
-	if card.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+
+	nextId := c.QueryInt("nextId")
+	card, err := getUserCard(c, uint(cardId))
+	if err != nil {
+		return err
 	}
 
 	store.Database.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID)
@@ -176,12 +177,9 @@ func deleteCard(c *fiber.Ctx) error {
 		})
 	}
 
-	var card models.Card
-	store.Database.First(&card, cardId)
-	if card.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+	card, err := getUserCard(c, uint(cardId))
+	if err != nil {
+		return err
 	}
 
 	var previous models.Card
