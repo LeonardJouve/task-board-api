@@ -54,7 +54,6 @@ func getColumns(c *fiber.Ctx) error {
 
 func createColumn(c *fiber.Ctx) error {
 	var column models.Column
-
 	if err := c.BodyParser(&column); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),

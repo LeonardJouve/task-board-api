@@ -24,6 +24,8 @@ func Router(c *fiber.Ctx) error {
 		return cards(c)
 	case "tags":
 		return tags(c)
+	case "users":
+		return users(c)
 	default:
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",

@@ -49,7 +49,6 @@ func getTags(c *fiber.Ctx) error {
 
 func createTag(c *fiber.Ctx) error {
 	var tag models.Tag
-
 	if err := c.BodyParser(&tag); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),

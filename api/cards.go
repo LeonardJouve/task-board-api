@@ -86,7 +86,6 @@ func createCard(c *fiber.Ctx) error {
 
 func updateCard(c *fiber.Ctx) error {
 	var card models.Card
-
 	if err := c.BodyParser(&card); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
