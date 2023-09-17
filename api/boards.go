@@ -12,6 +12,9 @@ import (
 func boards(c *fiber.Ctx) error {
 	switch c.Method() {
 	case "GET":
+		if paths := strings.Split(c.Path(), "/"); len(paths) == 5 && paths[3] == "invite" {
+			return inviteUser(c)
+		}
 		return getBoards(c)
 	case "POST":
 		return createBoard(c)
@@ -29,10 +32,15 @@ func boards(c *fiber.Ctx) error {
 }
 
 func getBoards(c *fiber.Ctx) error {
-	var boards []models.Board
-	store.Database.Find(&boards)
+	user, ok := c.Locals("user").(models.User)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
+	store.Database.Model(&user).Preload("Boards").First(&user)
 
-	return c.Status(fiber.StatusOK).JSON(boards)
+	return c.Status(fiber.StatusOK).JSON(user.Boards)
 }
 
 func createBoard(c *fiber.Ctx) error {
@@ -57,6 +65,14 @@ func createBoard(c *fiber.Ctx) error {
 		})
 	}
 
+	user, ok := c.Locals("user").(models.User)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
+	store.Database.Model(&user).Association("Boards").Append([]models.Board{board})
+
 	var previous models.Board
 	store.Database.Where("next_id IS NULL AND id != ?", board.ID).First(&previous)
 	if previous.ID != 0 {
@@ -69,7 +85,6 @@ func createBoard(c *fiber.Ctx) error {
 
 func updateBoard(c *fiber.Ctx) error {
 	var board models.Board
-
 	if err := c.BodyParser(&board); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
@@ -181,6 +196,62 @@ func deleteBoard(c *fiber.Ctx) error {
 	}
 	store.Database.Unscoped().Where("board_id = ?", boardId).Delete(&[]models.Tag{})
 	store.Database.Unscoped().Delete(&board)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "ok",
+	})
+}
+
+func inviteUser(c *fiber.Ctx) error {
+	paths := strings.Split(c.Path(), "/")
+	if len(paths) != 5 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+	boardId64, err := strconv.ParseUint(paths[4], 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+	boardId := uint(boardId64)
+	userId, err := strconv.ParseUint(c.Query("userId"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+	var user models.User
+	store.Database.First(&user, userId)
+	if user.ID == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+
+	currentUser, ok := c.Locals("user").(models.User)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
+	store.Database.Model(&currentUser).Preload("Boards").First(&currentUser)
+
+	var board models.Board
+	for _, b := range currentUser.Boards {
+		if b.ID == boardId {
+			board = b
+			break
+		}
+	}
+	if board.ID == 0 {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "unauthorized",
+		})
+	}
+
+	store.Database.Model(&user).Association("Boards").Append([]models.Board{board})
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",
