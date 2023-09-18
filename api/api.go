@@ -1,6 +1,7 @@
 package api
 
 // TODO
+// - sort ressources
 // - database snapshots
 // - JWT
 // - Websocket
@@ -10,11 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/gofiber/fiber/v2"
 )
-
-var validate = schema.Init()
 
 func getParamInt(c *fiber.Ctx, name string) (int, bool) {
 	param, err := c.ParamsInt(name)
