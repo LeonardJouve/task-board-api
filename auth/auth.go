@@ -18,34 +18,6 @@ const (
 	REFRESH_TOKEN = "refresh_token"
 )
 
-func Router(c *fiber.Ctx) error {
-	switch strings.Split(c.Path(), "/")[2] {
-	case "register":
-		if c.Method() != "POST" {
-			break
-		}
-		return register(c)
-	case "login":
-		if c.Method() != "POST" {
-			break
-		}
-		return login(c)
-	case "refresh":
-		if c.Method() != "GET" {
-			break
-		}
-		return refresh(c)
-	case "logout":
-		if c.Method() != "GET" {
-			break
-		}
-		return logout(c)
-	}
-	return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-		"message": "not found",
-	})
-}
-
 func Protect(c *fiber.Ctx) error {
 	var accessToken string
 	authorization := c.Get("authorization")
@@ -81,7 +53,7 @@ func Protect(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func register(c *fiber.Ctx) error {
+func Register(c *fiber.Ctx) error {
 	user, ok := schema.GetRegisterUserInput(c)
 	if !ok {
 		return nil
@@ -96,7 +68,7 @@ func register(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeUser(&user))
 }
 
-func login(c *fiber.Ctx) error {
+func Login(c *fiber.Ctx) error {
 	user, ok := schema.GetLoginUserInput(c)
 	if !ok {
 		return nil
@@ -117,7 +89,7 @@ func login(c *fiber.Ctx) error {
 	})
 }
 
-func refresh(c *fiber.Ctx) error {
+func Refresh(c *fiber.Ctx) error {
 	refreshToken := c.Cookies(REFRESH_TOKEN)
 	if len(refreshToken) == 0 {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
@@ -154,7 +126,7 @@ func refresh(c *fiber.Ctx) error {
 	})
 }
 
-func logout(c *fiber.Ctx) error {
+func Logout(c *fiber.Ctx) error {
 	accessToken := c.Cookies(ACCESS_TOKEN)
 	accessTokenClaims, ok := ValidateToken(c, ACCESS_TOKEN, accessToken)
 	if !ok {

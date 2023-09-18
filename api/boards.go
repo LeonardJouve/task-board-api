@@ -1,40 +1,13 @@
 package api
 
 import (
-	"strconv"
-	"strings"
-
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-func boards(c *fiber.Ctx) error {
-	switch c.Method() {
-	case "GET":
-		paths := strings.Split(c.Path(), "/")
-		if len(paths) == 5 && paths[4] == "invite" {
-			return inviteUser(c)
-		}
-		if len(paths) == 5 && paths[4] == "leave" {
-			return leaveBoard(c)
-		}
-		return getBoards(c)
-	case "POST":
-		return createBoard(c)
-	case "PUT":
-		return updateBoard(c)
-	case "DELETE":
-		return deleteBoard(c)
-	default:
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
-	}
-}
-
-func getBoards(c *fiber.Ctx) error {
+func GetBoards(c *fiber.Ctx) error {
 	boards, ok := getUserBoards(c)
 	if !ok {
 		return nil
@@ -43,7 +16,7 @@ func getBoards(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeBoards(&boards))
 }
 
-func createBoard(c *fiber.Ctx) error {
+func CreateBoard(c *fiber.Ctx) error {
 	board, ok := schema.GetUpsertBoardInput(c)
 	if !ok {
 		return nil
@@ -66,7 +39,7 @@ func createBoard(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeBoard(&board))
 }
 
-func updateBoard(c *fiber.Ctx) error {
+func UpdateBoard(c *fiber.Ctx) error {
 	board, ok := schema.GetUpsertBoardInput(c)
 	if !ok {
 		return nil
@@ -81,28 +54,22 @@ func updateBoard(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeBoard(&board))
 }
 
-func deleteBoard(c *fiber.Ctx) error {
-	paths := strings.Split(c.Path(), "/")
-	if len(paths) < 4 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+func DeleteBoard(c *fiber.Ctx) error {
+	boardId, ok := getParamInt(c, "board_id")
+	if !ok {
+		return nil
 	}
-	boardId, err := strconv.ParseUint(paths[3], 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+
+	board, ok := getUserBoard(c, uint(boardId))
+	if !ok {
+		return nil
 	}
 
 	user, ok := getUser(c)
 	if !ok {
 		return nil
 	}
-	board, ok := getUserBoard(c, uint(boardId))
-	if !ok {
-		return nil
-	}
+
 	if board.OwnerID != user.ID {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
@@ -116,25 +83,14 @@ func deleteBoard(c *fiber.Ctx) error {
 	})
 }
 
-func inviteUser(c *fiber.Ctx) error {
-	paths := strings.Split(c.Path(), "/")
-	if len(paths) != 5 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+func InviteBoard(c *fiber.Ctx) error {
+	boardId, ok := getParamInt(c, "board_id")
+	if !ok {
+		return nil
 	}
-	boardId, err := strconv.ParseUint(paths[3], 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-	userId, err := strconv.ParseUint(c.Query("userId"), 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
+
+	userId := c.QueryInt("userId")
+
 	var user models.User
 	store.Database.First(&user, userId)
 	if user.ID == 0 {
@@ -155,18 +111,10 @@ func inviteUser(c *fiber.Ctx) error {
 	})
 }
 
-func leaveBoard(c *fiber.Ctx) error {
-	paths := strings.Split(c.Path(), "/")
-	if len(paths) != 5 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
-	}
-	boardId, err := strconv.ParseUint(paths[3], 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+func LeaveBoard(c *fiber.Ctx) error {
+	boardId, ok := getParamInt(c, "board_id")
+	if !ok {
+		return nil
 	}
 	board, ok := getUserBoard(c, uint(boardId))
 	if !ok {

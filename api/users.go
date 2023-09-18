@@ -1,28 +1,13 @@
 package api
 
 import (
-	"strings"
-
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-func users(c *fiber.Ctx) error {
-	switch c.Method() {
-	case "GET":
-		if strings.Split(c.Path(), "/")[3] != "me" {
-			break
-		}
-		return getMe(c)
-	}
-	return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-		"message": "not found",
-	})
-}
-
-func getMe(c *fiber.Ctx) error {
+func GetMe(c *fiber.Ctx) error {
 	user, ok := getUser(c)
 	if !ok {
 		return nil

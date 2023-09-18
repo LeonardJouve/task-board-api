@@ -1,47 +1,22 @@
 package api
 
 import (
-	"strconv"
-	"strings"
-
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-func tags(c *fiber.Ctx) error {
-	switch c.Method() {
-	case "GET":
-		return getTags(c)
-	case "POST":
-		return createTag(c)
-	case "PUT":
-		return updateTag(c)
-	case "DELETE":
-		return deleteTag(c)
-	default:
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
-	}
-}
-
-func getTags(c *fiber.Ctx) error {
+func GetTags(c *fiber.Ctx) error {
 	var tags []models.Tag
 	query := store.Database
 
-	if len(c.Query("boardIds")) != 0 {
-		var boardIds []uint
-		for _, id := range strings.Split(c.Query("boardIds"), ",") {
-			boardId, err := strconv.ParseUint(id, 10, 64)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"message": err.Error(),
-				})
-			}
-			boardIds = append(boardIds, uint(boardId))
+	if boardIdsQuery := c.Query("boardIds"); len(boardIdsQuery) != 0 {
+		boardIds, ok := getQueryUIntArray(c, "boardIds")
+		if !ok {
+			return nil
 		}
+
 		query = query.Where("board_id IN ?", boardIds)
 	}
 
@@ -54,7 +29,7 @@ func getTags(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTags(&tags))
 }
 
-func createTag(c *fiber.Ctx) error {
+func CreateTag(c *fiber.Ctx) error {
 	tag, ok := schema.GetUpsertTagInput(c)
 	if !ok {
 		return nil
@@ -73,7 +48,7 @@ func createTag(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeTag(&tag))
 }
 
-func updateTag(c *fiber.Ctx) error {
+func UpdateTag(c *fiber.Ctx) error {
 	tag, ok := schema.GetUpsertTagInput(c)
 	if !ok {
 		return nil
@@ -88,18 +63,10 @@ func updateTag(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTag(&tag))
 }
 
-func deleteTag(c *fiber.Ctx) error {
-	paths := strings.Split(c.Path(), "/")
-	if len(paths) < 4 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
-	}
-	tagId, err := strconv.ParseUint(paths[3], 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+func DeleteTag(c *fiber.Ctx) error {
+	tagId, ok := getParamInt(c, "tag_id")
+	if !ok {
+		return nil
 	}
 
 	tag, ok := getUserTag(c, uint(tagId))
