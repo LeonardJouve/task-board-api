@@ -4,14 +4,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/LeonardJouve/task-board-api/models"
+	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
-	"github.com/LeonardJouve/task-board-api/store/models"
 	"github.com/gofiber/fiber/v2"
 )
 
 func cards(c *fiber.Ctx) error {
 	switch c.Method() {
 	case "GET":
+		if paths := strings.Split(c.Path(), "/"); len(paths) == 5 && paths[4] == "tag" {
+			return addTag(c)
+		}
 		return getCards(c)
 	case "POST":
 		return createCard(c)
@@ -47,38 +51,68 @@ func getCards(c *fiber.Ctx) error {
 		query = query.Where("column_id IN ?", columnIds)
 	}
 
-	userColumnIds, err := getUserColumnIds(c)
-	if err != nil {
-		return err
+	userColumnIds, ok := getUserColumnIds(c)
+	if !ok {
+		return nil
 	}
 	query.Where("column_id IN ?", userColumnIds).Find(&cards)
 
-	return c.Status(fiber.StatusOK).JSON(cards)
+	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCards(&cards))
+}
+
+func addTag(c *fiber.Ctx) error {
+	paths := strings.Split(c.Path(), "/")
+	if len(paths) != 5 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+	cardId, err := strconv.ParseUint(paths[3], 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+	}
+	card, ok := getUserCard(c, uint(cardId))
+	if !ok {
+		return nil
+	}
+	column, ok := getUserColumn(c, card.ColumnID)
+	if !ok {
+		return nil
+	}
+	tagId := c.QueryInt("tagId")
+	tag, ok := getUserTag(c, uint(tagId))
+	if !ok {
+		return nil
+	}
+
+	if column.BoardID != tag.BoardID {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": "invalid tag",
+		})
+	}
+
+	store.Database.Model(&card).Association("Tags").Append([]models.Tag{tag})
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "ok",
+	})
 }
 
 func createCard(c *fiber.Ctx) error {
-	var card models.Card
+	card, ok := schema.GetUpsertCardInput(c)
+	if !ok {
+		return nil
+	}
 
-	if err := c.BodyParser(&card); err != nil {
+	if _, ok := getUserColumn(c, card.ColumnID); !ok {
+		return nil
+	}
+
+	if err := store.Database.Create(&card).Error; err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
-		})
-	}
-	if err := validate.Struct(card); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-
-	if _, err := getUserColumn(c, card.ColumnID); err != nil {
-		return err
-	}
-
-	result := store.Database.Create(&card)
-
-	if result.Error != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": result.Error.Error(),
 		})
 	}
 
@@ -89,31 +123,22 @@ func createCard(c *fiber.Ctx) error {
 		store.Database.Save(&previous)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(card)
+	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeCard(&card))
 }
 
 func updateCard(c *fiber.Ctx) error {
-	var card models.Card
-	if err := c.BodyParser(&card); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-	if err := validate.Struct(card); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+	card, ok := schema.GetUpsertCardInput(c)
+	if !ok {
+		return nil
 	}
 
-	if _, err := getUserCard(c, card.ID); err != nil {
-		return err
+	if _, ok := getUserCard(c, card.ID); !ok {
+		return nil
 	}
 
 	store.Database.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID", "ColumnID").Updates(&card)
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
-	})
+	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCard(&card))
 }
 
 func moveCard(c *fiber.Ctx) error {
@@ -136,26 +161,40 @@ func moveCard(c *fiber.Ctx) error {
 	}
 
 	nextId := c.QueryInt("nextId")
-	card, err := getUserCard(c, uint(cardId))
-	if err != nil {
-		return err
+	columnId := c.QueryInt("columnId")
+	column, ok := getUserColumn(c, uint(columnId))
+	if !ok {
+		return nil
+	}
+	card, ok := getUserCard(c, uint(cardId))
+	if !ok {
+		return nil
 	}
 
-	store.Database.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID)
-	if nextId <= 0 {
-		store.Database.Model(&models.Card{}).Where("next_id IS NULL").Update("next_id", &card.ID)
-		store.Database.Model(&card).Update("next_id", nil)
+	if nextId == 0 {
+		store.Database.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID)
+		store.Database.Model(&models.Card{}).Where("next_id IS NULL AND column_id = ?", column.ID).Update("next_id", &card.ID)
+		store.Database.Model(&card).Updates(&models.Card{
+			NextID:   nil,
+			ColumnID: column.ID,
+		})
 	} else {
-		var previous models.Card
-		store.Database.Find(&previous, nextId)
-		if previous.ID == 0 {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"message": "not found",
+		next, ok := getUserCard(c, uint(nextId))
+		if !ok {
+			return nil
+		}
+		if next.ColumnID != column.ID {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "invalid columnId",
 			})
 		}
 
+		store.Database.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID)
 		store.Database.Model(&models.Card{}).Where("next_id = ?", nextId).Update("next_id", &card.ID)
-		store.Database.Model(&card).Update("next_id", nextId)
+		store.Database.Model(&card).Updates(&models.Card{
+			NextID:   &next.ID,
+			ColumnID: column.ID,
+		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -177,15 +216,14 @@ func deleteCard(c *fiber.Ctx) error {
 		})
 	}
 
-	card, err := getUserCard(c, uint(cardId))
-	if err != nil {
-		return err
+	card, ok := getUserCard(c, uint(cardId))
+	if !ok {
+		return nil
 	}
 
 	var previous models.Card
 	if store.Database.Where("next_id = ?", cardId).First(&previous); previous.ID != 0 {
-		previous.NextID = card.NextID
-		store.Database.Save(&previous)
+		store.Database.Model(&previous).Update("next_id", card.NextID)
 	}
 	store.Database.Unscoped().Delete(&card)
 

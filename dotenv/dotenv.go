@@ -3,6 +3,7 @@ package dotenv
 import (
 	"bufio"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -46,4 +47,12 @@ func (env *Environment) Restore() {
 			os.Setenv(key, value)
 		}
 	}
+}
+
+func GetInt(key string) int {
+	value, err := strconv.ParseInt(os.Getenv(key), 10, 32)
+	if err != nil {
+		return 0
+	}
+	return int(value)
 }

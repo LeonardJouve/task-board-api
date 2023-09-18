@@ -1,17 +1,16 @@
 package api
 
 // TODO
-// - Move card must update columnId
 // - Websocket
 
 import (
 	"strings"
 
-	"github.com/go-playground/validator/v10"
+	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/gofiber/fiber/v2"
 )
 
-var validate = validator.New()
+var validate = schema.Init()
 
 func Router(c *fiber.Ctx) error {
 	switch strings.Split(c.Path(), "/")[2] {

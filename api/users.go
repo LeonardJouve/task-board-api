@@ -3,8 +3,9 @@ package api
 import (
 	"strings"
 
+	"github.com/LeonardJouve/task-board-api/models"
+	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
-	"github.com/LeonardJouve/task-board-api/store/models"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -22,83 +23,94 @@ func users(c *fiber.Ctx) error {
 }
 
 func getMe(c *fiber.Ctx) error {
-	user, err := getUser(c)
-	if err != nil {
-		return err
+	user, ok := getUser(c)
+	if !ok {
+		return nil
 	}
 
-	return c.Status(fiber.StatusOK).JSON(user.Sanitize())
+	return c.Status(fiber.StatusOK).JSON(schema.SanitizeUser(&user))
 }
 
-func getUser(c *fiber.Ctx) (models.User, error) {
+func getUser(c *fiber.Ctx) (models.User, bool) {
 	user, ok := c.Locals("user").(models.User)
 	if !ok {
-		return models.User{}, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "server error",
 		})
+		return models.User{}, false
 	}
 
-	return user, nil
+	return user, true
 }
 
-func getUserBoard(c *fiber.Ctx, boardId uint) (models.Board, error) {
-	user, err := getUser(c)
-	if err != nil {
-		return models.Board{}, err
+func getUserBoards(c *fiber.Ctx) ([]models.Board, bool) {
+	user, ok := getUser(c)
+	if !ok {
+		return []models.Board{}, false
 	}
 	store.Database.Model(&user).Preload("Boards").First(&user)
 
+	return user.Boards, true
+}
+
+func getUserBoard(c *fiber.Ctx, boardId uint) (models.Board, bool) {
+	boards, ok := getUserBoards(c)
+	if !ok {
+		return models.Board{}, false
+	}
+
 	var board models.Board
-	for _, b := range user.Boards {
+	for _, b := range boards {
 		if b.ID == boardId {
 			board = b
 			break
 		}
 	}
-
 	if board.ID == 0 {
-		return models.Board{}, c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"message": "unauthorized",
+		c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
 		})
+		return models.Board{}, false
 	}
 
-	return board, nil
+	return board, true
 }
 
-func getUserBoardIds(c *fiber.Ctx) ([]uint, error) {
-	user, err := getUser(c)
-	if err != nil {
-		return []uint{}, err
+func getUserBoardIds(c *fiber.Ctx) ([]uint, bool) {
+	boards, ok := getUserBoards(c)
+	if !ok {
+		return []uint{}, false
 	}
 
 	var boardIds []uint
-	for _, board := range user.Boards {
+	for _, board := range boards {
 		boardIds = append(boardIds, board.ID)
 	}
 
-	return boardIds, nil
+	return boardIds, true
 }
 
-func getUserColumn(c *fiber.Ctx, columnId uint) (models.Column, error) {
+func getUserColumn(c *fiber.Ctx, columnId uint) (models.Column, bool) {
 	var column models.Column
 	store.Database.First(&column, columnId)
 	if column.ID == 0 {
-		return models.Column{}, c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",
 		})
+		return models.Column{}, false
 	}
 
-	if _, err := getUserBoard(c, column.BoardID); err != nil {
-		return models.Column{}, err
+	if _, ok := getUserBoard(c, column.BoardID); !ok {
+		return models.Column{}, false
 	}
 
-	return column, nil
+	return column, true
 }
 
-func getUserColumnIds(c *fiber.Ctx) ([]uint, error) {
-	boardIds, err := getUserBoardIds(c)
-	if err != nil {
-		return []uint{}, err
+func getUserColumnIds(c *fiber.Ctx) ([]uint, bool) {
+	boardIds, ok := getUserBoardIds(c)
+	if !ok {
+		return []uint{}, false
 	}
 
 	var columns []models.Column
@@ -109,37 +121,39 @@ func getUserColumnIds(c *fiber.Ctx) ([]uint, error) {
 		columnIds = append(columnIds, column.ID)
 	}
 
-	return columnIds, nil
+	return columnIds, true
 }
 
-func getUserTag(c *fiber.Ctx, tagId uint) (models.Tag, error) {
+func getUserTag(c *fiber.Ctx, tagId uint) (models.Tag, bool) {
 	var tag models.Tag
 	store.Database.First(&tag, tagId)
 	if tag.ID == 0 {
-		return models.Tag{}, c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",
 		})
+		return models.Tag{}, false
 	}
 
-	if _, err := getUserBoard(c, tag.BoardID); err != nil {
-		return models.Tag{}, err
+	if _, ok := getUserBoard(c, tag.BoardID); !ok {
+		return models.Tag{}, false
 	}
 
-	return tag, nil
+	return tag, true
 }
 
-func getUserCard(c *fiber.Ctx, cardId uint) (models.Card, error) {
+func getUserCard(c *fiber.Ctx, cardId uint) (models.Card, bool) {
 	var card models.Card
-	store.Database.First(&card, card.ID)
+	store.Database.First(&card, cardId)
 	if card.ID == 0 {
-		return models.Card{}, c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",
 		})
+		return models.Card{}, false
 	}
 
-	if _, err := getUserColumn(c, card.ColumnID); err != nil {
-		return models.Card{}, err
+	if _, ok := getUserColumn(c, card.ColumnID); !ok {
+		return models.Card{}, false
 	}
 
-	return card, nil
+	return card, true
 }

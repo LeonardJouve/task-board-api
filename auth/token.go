@@ -1,24 +1,34 @@
 package auth
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/LeonardJouve/task-board-api/store"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
 type TokenClaims = jwt.RegisteredClaims
 
-func CreateToken(name string, userId uint, lifetime int64) (string, *TokenClaims, error) {
+func CreateToken(c *fiber.Ctx, name string, userId uint, lifetime int) (string, bool) {
 	privatePEM, _, err := getRSAKeys(name)
 	if err != nil {
-		return "", nil, err
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "invalid token encryption",
+		})
+		return "", false
 	}
 
 	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(privatePEM)
 	if err != nil {
-		return "", nil, err
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "invalid token encryption",
+		})
+		return "", false
 	}
 
 	claims := &TokenClaims{
@@ -28,18 +38,49 @@ func CreateToken(name string, userId uint, lifetime int64) (string, *TokenClaims
 	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)
 	if err != nil {
-		return "", nil, err
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "invalid token encryption",
+		})
+		return "", false
 	}
 
-	return token, claims, nil
+	ctx := context.TODO()
+	if err := store.Redis.Set(ctx, claims.ID, userId, time.Until(claims.ExpiresAt.Time)).Err(); err != nil {
+		c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+		return "", false
+	}
+
+	c.Cookie(&fiber.Cookie{
+		Name:     name,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   lifetime * 60,
+		Secure:   false,
+		HTTPOnly: true,
+		Domain:   os.Getenv("HOST"),
+	})
+
+	return token, true
 }
 
-func ValidateToken(name string, token string) (*TokenClaims, error) {
+// TODO handle expiration
+func ValidateToken(c *fiber.Ctx, name string, token string) (*TokenClaims, bool) {
 	_, publicPEM, err := getRSAKeys(name)
+	if err != nil {
+		c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "unauthorized",
+		})
+		return nil, false
+	}
 
 	publicKey, err := jwt.ParseRSAPublicKeyFromPEM(publicPEM)
 	if err != nil {
-		return nil, err
+		c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "unauthorized",
+		})
+		return nil, false
 	}
 
 	var claims = &TokenClaims{}
@@ -50,8 +91,11 @@ func ValidateToken(name string, token string) (*TokenClaims, error) {
 		return publicKey, nil
 	})
 	if err != nil {
-		return nil, err
+		c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "unauthorized",
+		})
+		return nil, false
 	}
 
-	return claims, nil
+	return claims, true
 }

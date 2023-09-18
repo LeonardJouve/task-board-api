@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/LeonardJouve/task-board-api/store/models"
+	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

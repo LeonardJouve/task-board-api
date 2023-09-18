@@ -4,8 +4,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/LeonardJouve/task-board-api/models"
+	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
-	"github.com/LeonardJouve/task-board-api/store/models"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -15,6 +16,8 @@ func tags(c *fiber.Ctx) error {
 		return getTags(c)
 	case "POST":
 		return createTag(c)
+	case "PUT":
+		return updateTag(c)
 	case "DELETE":
 		return deleteTag(c)
 	default:
@@ -42,41 +45,47 @@ func getTags(c *fiber.Ctx) error {
 		query = query.Where("board_id IN ?", boardIds)
 	}
 
-	userBoardIds, err := getUserBoardIds(c)
-	if err != nil {
-		return err
+	userBoardIds, ok := getUserBoardIds(c)
+	if !ok {
+		return nil
 	}
 	query.Where("board_id IN ?", userBoardIds).Find(&tags)
 
-	return c.Status(fiber.StatusOK).JSON(tags)
+	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTags(&tags))
 }
 
 func createTag(c *fiber.Ctx) error {
-	var tag models.Tag
-	if err := c.BodyParser(&tag); err != nil {
+	tag, ok := schema.GetUpsertTagInput(c)
+	if !ok {
+		return nil
+	}
+
+	if _, ok := getUserBoard(c, tag.BoardID); !ok {
+		return nil
+	}
+
+	if err := store.Database.Create(&tag).Error; err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
 		})
 	}
-	if err := validate.Struct(tag); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+
+	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeTag(&tag))
+}
+
+func updateTag(c *fiber.Ctx) error {
+	tag, ok := schema.GetUpsertTagInput(c)
+	if !ok {
+		return nil
 	}
 
-	if _, err := getUserBoard(c, tag.BoardID); err != nil {
-		return err
+	if _, ok := getUserTag(c, tag.ID); !ok {
+		return nil
 	}
 
-	result := store.Database.Create(&tag)
+	store.Database.Model(&models.Tag{}).Where("id = ?", tag.ID).Updates(&tag)
 
-	if result.Error != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": result.Error.Error(),
-		})
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(tag)
+	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTag(&tag))
 }
 
 func deleteTag(c *fiber.Ctx) error {
@@ -93,9 +102,9 @@ func deleteTag(c *fiber.Ctx) error {
 		})
 	}
 
-	tag, err := getUserTag(c, uint(tagId))
-	if err != nil {
-		return err
+	tag, ok := getUserTag(c, uint(tagId))
+	if !ok {
+		return nil
 	}
 
 	store.Database.Unscoped().Delete(&tag)

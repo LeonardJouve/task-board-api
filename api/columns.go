@@ -4,8 +4,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/LeonardJouve/task-board-api/models"
+	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
-	"github.com/LeonardJouve/task-board-api/store/models"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -47,30 +48,23 @@ func getColumns(c *fiber.Ctx) error {
 		query = query.Where("board_id IN ?", boardIds)
 	}
 
-	userBoardIds, err := getUserBoardIds(c)
-	if err != nil {
-		return err
+	userBoardIds, ok := getUserBoardIds(c)
+	if !ok {
+		return nil
 	}
 	query.Where("board_id IN ?", userBoardIds).Find(&columns)
 
-	return c.Status(fiber.StatusOK).JSON(columns)
+	return c.Status(fiber.StatusOK).JSON(schema.SanitizeColumns(&columns))
 }
 
 func createColumn(c *fiber.Ctx) error {
-	var column models.Column
-	if err := c.BodyParser(&column); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-	if err := validate.Struct(column); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+	column, ok := schema.GetUpsertColumnInput(c)
+	if !ok {
+		return nil
 	}
 
-	if _, err := getUserBoard(c, column.BoardID); err != nil {
-		return err
+	if _, ok := getUserBoard(c, column.BoardID); !ok {
+		return nil
 	}
 
 	result := store.Database.Create(&column)
@@ -88,7 +82,7 @@ func createColumn(c *fiber.Ctx) error {
 		store.Database.Save(&previous)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(column)
+	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeColumn(&column))
 }
 
 func updateColumn(c *fiber.Ctx) error {
@@ -104,16 +98,14 @@ func updateColumn(c *fiber.Ctx) error {
 		})
 	}
 
-	_, err := getUserColumn(c, column.ID)
-	if err != nil {
-		return err
+	_, ok := getUserColumn(c, column.ID)
+	if !ok {
+		return nil
 	}
 
 	store.Database.Model(&column).Omit("NextID", "BoardID").Updates(&column)
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
-	})
+	return c.Status(fiber.StatusOK).JSON(schema.SanitizeColumn(&column))
 }
 
 func moveColumn(c *fiber.Ctx) error {
@@ -136,14 +128,14 @@ func moveColumn(c *fiber.Ctx) error {
 			"message": err.Error(),
 		})
 	}
-	column, err := getUserColumn(c, uint(columnId))
-	if err != nil {
-		return err
+	column, ok := getUserColumn(c, uint(columnId))
+	if !ok {
+		return nil
 	}
 
 	store.Database.Model(&models.Column{}).Where("next_id = ?", column.ID).Update("next_id", column.NextID)
 	if nextId <= 0 {
-		store.Database.Model(&models.Column{}).Where("next_id IS NULL").Update("next_id", &column.ID)
+		store.Database.Model(&models.Column{}).Where("next_id IS NULL AND board_id = ?", column.BoardID).Update("next_id", &column.ID)
 		store.Database.Model(&column).Update("next_id", nil)
 	} else {
 		var previous models.Column
@@ -177,17 +169,14 @@ func deleteColumn(c *fiber.Ctx) error {
 		})
 	}
 
-	column, err := getUserColumn(c, uint(columnId))
-	if err != nil {
-		return err
+	column, ok := getUserColumn(c, uint(columnId))
+	if !ok {
+		return nil
 	}
-
-	store.Database.Unscoped().Where("column_id = ?", columnId).Delete(&[]models.Card{})
 
 	var previous models.Column
 	if store.Database.Where("next_id = ?", columnId).First(&previous); previous.ID != 0 {
-		previous.NextID = column.NextID
-		store.Database.Save(&previous)
+		store.Database.Where(&previous).Update("next_id", column.NextID)
 	}
 	store.Database.Unscoped().Delete(&column)
 

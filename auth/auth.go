@@ -2,20 +2,21 @@ package auth
 
 import (
 	"context"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/LeonardJouve/task-board-api/dotenv"
+	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
-	"github.com/LeonardJouve/task-board-api/store/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
-	"golang.org/x/crypto/bcrypt"
 )
 
-var validate = schema.Init()
+const (
+	ACCESS_TOKEN  = "access_token"
+	REFRESH_TOKEN = "refresh_token"
+)
 
 func Router(c *fiber.Ctx) error {
 	switch strings.Split(c.Path(), "/")[2] {
@@ -50,15 +51,13 @@ func Protect(c *fiber.Ctx) error {
 	authorization := c.Get("authorization")
 	if strings.HasPrefix(authorization, "Bearer ") {
 		accessToken = strings.TrimPrefix(authorization, "Bearer ")
-	} else if c.Cookies("access_token") != "" {
-		accessToken = c.Cookies("access_token")
+	} else if accessTokenCookie := c.Cookies(ACCESS_TOKEN); len(accessTokenCookie) != 0 {
+		accessToken = accessTokenCookie
 	}
 
-	accessTokenClaims, err := ValidateToken("access_token", accessToken)
-	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"message": "unauthorized",
-		})
+	accessTokenClaims, ok := ValidateToken(c, ACCESS_TOKEN, accessToken)
+	if !ok {
+		return nil
 	}
 
 	ctx := context.TODO()
@@ -72,8 +71,8 @@ func Protect(c *fiber.Ctx) error {
 	var user models.User
 	store.Database.First(&user, userId)
 	if user.ID == 0 {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": "unprocessable entity",
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "unauthorized",
 		})
 	}
 
@@ -83,147 +82,43 @@ func Protect(c *fiber.Ctx) error {
 }
 
 func register(c *fiber.Ctx) error {
-	var input schema.RegisterInput
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-	if err := validate.Struct(input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+	user, ok := schema.GetRegisterUserInput(c)
+	if !ok {
+		return nil
 	}
 
-	if input.Password != input.PasswordConfirm {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "invalid password confirmation",
-		})
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "unable to hash password",
-		})
-	}
-
-	user := &models.User{
-		Name:     input.Name,
-		Email:    input.Email,
-		Password: string(hashedPassword),
-	}
-	result := store.Database.Create(user)
-	if result.Error != nil {
+	if err := store.Database.Create(&user).Error; err != nil {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"message": result.Error.Error(),
+			"message": err.Error(),
 		})
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(user.Sanitize())
+	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeUser(&user))
 }
 
 func login(c *fiber.Ctx) error {
-	var input schema.LoginInput
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-	if err := validate.Struct(input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+	user, ok := schema.GetLoginUserInput(c)
+	if !ok {
+		return nil
 	}
 
-	var user models.User
-	store.Database.Where(&models.User{Email: input.Email}).First(&user)
-	if user.ID == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+	accessToken, ok := CreateToken(c, ACCESS_TOKEN, user.ID, dotenv.GetInt("ACCESS_TOKEN_LIFETIME_IN_MINUTE"))
+	if !ok {
+		return nil
 	}
-
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"message": "not found",
-		})
+	refreshToken, ok := CreateToken(c, REFRESH_TOKEN, user.ID, dotenv.GetInt("REFRESH_TOKEN_LIFETIME_IN_MINUTE"))
+	if !ok {
+		return nil
 	}
-
-	accessTokenLifetimeInMinuteString := os.Getenv("ACCESS_TOKEN_LIFETIME_IN_MINUTE")
-	accessTokenLifetimeInMinute, err := strconv.ParseInt(accessTokenLifetimeInMinuteString, 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "invalid env",
-		})
-	}
-
-	accessToken, accessTokenClaims, err := CreateToken("access_token", user.ID, accessTokenLifetimeInMinute)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "invalid token encryption",
-		})
-	}
-	refreshToken, refreshTokenClaims, err := CreateToken("refresh_token", user.ID, accessTokenLifetimeInMinute)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "invalid token encryption",
-		})
-	}
-
-	ctx := context.TODO()
-	if err := store.Redis.Set(ctx, accessTokenClaims.ID, user.ID, time.Until(accessTokenClaims.ExpiresAt.Time)).Err(); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"status": "fail", "message": err.Error()})
-	}
-	if err := store.Redis.Set(ctx, refreshTokenClaims.ID, user.ID, time.Until(refreshTokenClaims.ExpiresAt.Time)).Err(); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"status": "fail", "message": err.Error()})
-	}
-
-	accessTokenMaxAgeInMinuteString := os.Getenv("ACCESS_TOKEN_MAX_AGE_IN_MINUTE")
-	accessTokenMaxAgeInMinute, err := strconv.ParseInt(accessTokenMaxAgeInMinuteString, 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "invalid env",
-		})
-	}
-
-	refreshTokenMaxAgeInMinuteString := os.Getenv("REFRESH_TOKEN_MAX_AGE_IN_MINUTE")
-	refreshTokenMaxAgeInMinute, err := strconv.ParseInt(refreshTokenMaxAgeInMinuteString, 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "invalid env",
-		})
-	}
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "access_token",
-		Value:    accessToken,
-		Path:     "/",
-		MaxAge:   int(accessTokenMaxAgeInMinute) * 60,
-		Secure:   false,
-		HTTPOnly: true,
-		Domain:   os.Getenv("HOST"),
-	})
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		Path:     "/",
-		MaxAge:   int(refreshTokenMaxAgeInMinute) * 60,
-		Secure:   false,
-		HTTPOnly: true,
-		Domain:   os.Getenv("HOST"),
-	})
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+		ACCESS_TOKEN:  accessToken,
+		REFRESH_TOKEN: refreshToken,
 	})
 }
 
 func refresh(c *fiber.Ctx) error {
-	refreshToken := c.Cookies("refresh_token")
+	refreshToken := c.Cookies(REFRESH_TOKEN)
 	if len(refreshToken) == 0 {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
@@ -232,8 +127,8 @@ func refresh(c *fiber.Ctx) error {
 
 	ctx := context.TODO()
 
-	refreshTokenClaims, err := ValidateToken("refresh_token", refreshToken)
-	if err != nil {
+	refreshTokenClaims, ok := ValidateToken(c, REFRESH_TOKEN, refreshToken)
+	if !ok {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
 		})
@@ -249,69 +144,31 @@ func refresh(c *fiber.Ctx) error {
 	var user models.User
 	store.Database.First(&user, userId)
 
-	accessTokenLifetimeInMinuteString := os.Getenv("ACCESS_TOKEN_LIFETIME_IN_MINUTE")
-	accessTokenLifetimeInMinute, err := strconv.ParseInt(accessTokenLifetimeInMinuteString, 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "invalid env",
-		})
+	accessToken, ok := CreateToken(c, ACCESS_TOKEN, user.ID, dotenv.GetInt("ACCESS_TOKEN_LIFETIME_IN_MINUTE"))
+	if !ok {
+		return nil
 	}
-
-	accessToken, accessTokenClaims, err := CreateToken("access_token", user.ID, accessTokenLifetimeInMinute)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-
-	if err := store.Redis.Set(ctx, accessTokenClaims.ID, user.ID, time.Until(accessTokenClaims.ExpiresAt.Time)).Err(); err != nil {
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
-			"message": err.Error(),
-		})
-	}
-
-	accessTokenMaxAgeInMinuteString := os.Getenv("ACCESS_TOKEN_MAX_AGE_IN_MINUTE")
-	accessTokenMaxAgeInMinute, err := strconv.ParseInt(accessTokenMaxAgeInMinuteString, 10, 64)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "invalid env",
-		})
-	}
-
-	c.Cookie(&fiber.Cookie{
-		Name:     "access_token",
-		Value:    accessToken,
-		Path:     "/",
-		MaxAge:   int(accessTokenMaxAgeInMinute) * 60,
-		Secure:   false,
-		HTTPOnly: true,
-		Domain:   os.Getenv("HOST"),
-	})
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		ACCESS_TOKEN: accessToken,
 	})
 }
 
 func logout(c *fiber.Ctx) error {
-	accessToken := c.Cookies("access_token")
-	accessTokenClaims, err := ValidateToken("access_token", accessToken)
-	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"message": "unauthorized",
-		})
+	accessToken := c.Cookies(ACCESS_TOKEN)
+	accessTokenClaims, ok := ValidateToken(c, ACCESS_TOKEN, accessToken)
+	if !ok {
+		return nil
 	}
 
-	refreshToken := c.Cookies("refresh_token")
-	refreshTokenClaims, err := ValidateToken("refresh_token", refreshToken)
-	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"message": "unauthorized",
-		})
+	refreshToken := c.Cookies(REFRESH_TOKEN)
+	refreshTokenClaims, ok := ValidateToken(c, refreshToken, refreshToken)
+	if !ok {
+		return nil
 	}
 
 	ctx := context.TODO()
-	if err = store.Redis.Del(ctx, accessTokenClaims.ID, refreshTokenClaims.ID).Err(); err != nil {
+	if err := store.Redis.Del(ctx, accessTokenClaims.ID, refreshTokenClaims.ID).Err(); err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
 			"message": err.Error(),
 		})
@@ -319,12 +176,12 @@ func logout(c *fiber.Ctx) error {
 
 	expired := time.Now().Add(-time.Hour * 24)
 	c.Cookie(&fiber.Cookie{
-		Name:    "access_token",
+		Name:    ACCESS_TOKEN,
 		Value:   "",
 		Expires: expired,
 	})
 	c.Cookie(&fiber.Cookie{
-		Name:    "refresh_token",
+		Name:    REFRESH_TOKEN,
 		Value:   "",
 		Expires: expired,
 	})
