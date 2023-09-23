@@ -16,6 +16,7 @@ import (
 const (
 	ACCESS_TOKEN  = "access_token"
 	REFRESH_TOKEN = "refresh_token"
+	CSRF_TOKEN    = "csrf_token"
 )
 
 func Protect(c *fiber.Ctx) error {
@@ -51,6 +52,19 @@ func Protect(c *fiber.Ctx) error {
 	c.Locals("user", user)
 
 	return c.Next()
+}
+
+func GetCSRF(c *fiber.Ctx) error {
+	csrfToken, ok := c.Locals(CSRF_TOKEN).(string)
+	if !ok || len(csrfToken) == 0 {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "ok",
+	})
 }
 
 func Register(c *fiber.Ctx) error {

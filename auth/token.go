@@ -8,8 +8,8 @@ import (
 
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 type TokenClaims = jwt.RegisteredClaims
@@ -33,7 +33,7 @@ func CreateToken(c *fiber.Ctx, name string, userId uint, lifetime int) (string, 
 
 	claims := &TokenClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().UTC().Add(time.Duration(lifetime) * time.Minute)),
-		ID:        uuid.NewString(),
+		ID:        utils.UUIDv4(),
 		Subject:   fmt.Sprint(userId),
 	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(privateKey)

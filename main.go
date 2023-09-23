@@ -3,13 +3,18 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/LeonardJouve/task-board-api/api"
 	"github.com/LeonardJouve/task-board-api/auth"
 	"github.com/LeonardJouve/task-board-api/dotenv"
+	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/csrf"
+	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/storage/redis/v3"
 )
 
 func main() {
@@ -24,12 +29,36 @@ func main() {
 		panic(err.Error())
 	}
 
+	schema.Init()
+
 	app := fiber.New()
+
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     fmt.Sprintf("http://%s:%s", os.Getenv("HOST"), os.Getenv("PORT")),
+		AllowOrigins:     fmt.Sprintf("%s://%s:%s", os.Getenv("PROTOCOL"), os.Getenv("HOST"), os.Getenv("PORT")),
 		AllowHeaders:     "Origin, Content-Type, Accept",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE",
 		AllowCredentials: true,
+	}))
+
+	app.Use(csrf.New(csrf.Config{
+		KeyLookup:      "header:X-CSRF-Token",
+		ContextKey:     auth.CSRF_TOKEN,
+		CookieName:     auth.CSRF_TOKEN,
+		CookieDomain:   os.Getenv("HOST"),
+		CookiePath:     "/",
+		CookieSecure:   os.Getenv("PROTOCOL") == "https",
+		CookieSameSite: "Lax",
+		Expiration:     time.Duration((dotenv.GetInt("CSRF_TOKEN_LIFETIME_IN_MINUTE"))) * time.Minute,
+		KeyGenerator:   utils.UUIDv4,
+		Storage: redis.New(redis.Config{
+			Host: os.Getenv("REDIS_HOST"),
+			Port: dotenv.GetInt("REDIS_PORT"),
+		}),
+		ErrorHandler: func(c *fiber.Ctx, err error) error {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"message": "invalid csrf token",
+			})
+		},
 	}))
 
 	// /auth
@@ -38,6 +67,7 @@ func main() {
 	authGroup.Post("/login", auth.Login)
 	authGroup.Get("/refresh", auth.Refresh)
 	authGroup.Get("/logout", auth.Logout)
+	authGroup.Get("/csrf", auth.GetCSRF)
 
 	apiGroup := app.Group("/api", auth.Protect)
 

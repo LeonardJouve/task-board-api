@@ -11,12 +11,10 @@ const COLOR_REGEX = `^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$`
 
 var validate *validator.Validate
 
-func Init() *validator.Validate {
+func Init() {
 	validate = validator.New()
 	validate.RegisterValidation("email", validateEmail)
 	validate.RegisterValidation("color", validateColor)
-
-	return validate
 }
 
 func validateEmail(field validator.FieldLevel) bool {
