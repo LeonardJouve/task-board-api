@@ -53,7 +53,7 @@ func GetRegisterUserInput(c *fiber.Ctx) (models.User, bool) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "unable to hash password",
+			"message": "server error",
 		})
 		return models.User{}, false
 	}
@@ -102,4 +102,27 @@ func GetLoginUserInput(c *fiber.Ctx) (models.User, bool) {
 	}
 
 	return user, true
+}
+
+type RefreshInput struct {
+	AccessToken  string `json:"accessToken" validate:"required"`
+	RefreshToken string `json:"refreshToken" validate:"required"`
+}
+
+func GetRefreshInput(c *fiber.Ctx) (string, string, bool) {
+	var input RefreshInput
+	if err := c.BodyParser(&input); err != nil {
+		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+		return "", "", false
+	}
+	if err := validate.Struct(&input); err != nil {
+		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+		return "", "", false
+	}
+
+	return input.AccessToken, input.RefreshToken, true
 }

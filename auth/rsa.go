@@ -8,35 +8,68 @@ import (
 	"log"
 	"os"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func getRSAKeys(name string) ([]byte, []byte, error) {
-	privateFilename, publicFilename := getRSAFilenames(name)
+func getKeyPEM(c *fiber.Ctx, name string, private bool) ([]byte, bool) {
+	filename := getRSAFilename(name, private)
 
-	_, privateErr := os.Stat(privateFilename)
-	_, publicErr := os.Stat(publicFilename)
-	if privateErr != nil || publicErr != nil {
-		return generateKeys(name)
+	var keyPEM []byte
+
+	if _, err := os.Stat(filename); err != nil {
+		_, keyPEM, err = generateKeys(name)
+		if err != nil {
+			c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "server error",
+			})
+			return nil, false
+		}
+	} else {
+		keyPEM, err = os.ReadFile(filename)
+		if err != nil {
+			c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "server error",
+			})
+			return nil, false
+		}
 	}
 
-	privatePEM, privateErr := os.ReadFile(privateFilename)
-	publicPEM, publicErr := os.ReadFile(publicFilename)
-	if privateErr != nil || publicErr != nil {
-		return generateKeys(name)
+	return keyPEM, true
+}
+
+func getPrivateKey(c *fiber.Ctx, name string) (*rsa.PrivateKey, bool) {
+	privatePEM, ok := getKeyPEM(c, name, true)
+	if !ok {
+		return nil, false
 	}
 
-	privateKey, privateErr := jwt.ParseRSAPrivateKeyFromPEM(privatePEM)
-	publicKey, publicErr := jwt.ParseRSAPublicKeyFromPEM(publicPEM)
-	if privateErr != nil || publicErr != nil {
-		return generateKeys(name)
+	privateKey, err := jwt.ParseRSAPrivateKeyFromPEM(privatePEM)
+	if err != nil {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return nil, false
 	}
 
-	if privateKey.PublicKey.N.Cmp(publicKey.N) != 0 {
-		return generateKeys(name)
+	return privateKey, true
+}
+
+func getPublicKey(c *fiber.Ctx, name string) (*rsa.PublicKey, bool) {
+	publicPEM, ok := getKeyPEM(c, name, false)
+	if !ok {
+		return nil, false
 	}
 
-	return privatePEM, publicPEM, nil
+	publicKey, err := jwt.ParseRSAPublicKeyFromPEM(publicPEM)
+	if err != nil {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return nil, false
+	}
+
+	return publicKey, true
 }
 
 func generateKeys(name string) ([]byte, []byte, error) {
@@ -51,7 +84,6 @@ func generateKeys(name string) ([]byte, []byte, error) {
 			Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
 		},
 	)
-
 	publicPEM := pem.EncodeToMemory(
 		&pem.Block{
 			Type:  "RSA PUBLIC KEY",
@@ -59,19 +91,26 @@ func generateKeys(name string) ([]byte, []byte, error) {
 		},
 	)
 
-	privateFilename, publicFilename := getRSAFilenames(name)
-	if err := os.WriteFile(privateFilename, privatePEM, 0700); err != nil {
+	publicFilename := getRSAFilename(name, false)
+	privateFilename := getRSAFilename(name, true)
+	if err := os.WriteFile(publicFilename, publicPEM, 0755); err != nil {
 		return nil, nil, err
 	}
-	if err := os.WriteFile(publicFilename, publicPEM, 0755); err != nil {
+	if err := os.WriteFile(privateFilename, privatePEM, 0700); err != nil {
+		os.Remove(publicFilename)
 		return nil, nil, err
 	}
 
 	log.Println("GENERATING RSA CERTIFICATES")
 
-	return privatePEM, publicPEM, nil
+	return publicPEM, privatePEM, nil
 }
 
-func getRSAFilenames(name string) (string, string) {
-	return "rsa/" + name + ".rsa", "rsa/" + name + ".rsa.pub"
+func getRSAFilename(name string, private bool) string {
+	filename := "rsa/" + name + ".rsa"
+	if !private {
+		filename += ".pub"
+	}
+
+	return filename
 }

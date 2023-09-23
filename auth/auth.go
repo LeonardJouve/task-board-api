@@ -2,21 +2,22 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
-	"github.com/LeonardJouve/task-board-api/dotenv"
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
-	"github.com/redis/go-redis/v9"
 )
 
 const (
-	ACCESS_TOKEN  = "access_token"
-	REFRESH_TOKEN = "refresh_token"
-	CSRF_TOKEN    = "csrf_token"
+	ACCESS_TOKEN          = "access_token"
+	REFRESH_TOKEN         = "refresh_token"
+	CSRF_TOKEN            = "csrf_token"
+	TOKEN_USED            = "token_used"
+	TOKEN_AVAILABLE_SINCE = "token_available_since"
 )
 
 func Protect(c *fiber.Ctx) error {
@@ -33,9 +34,14 @@ func Protect(c *fiber.Ctx) error {
 		return nil
 	}
 
+	expired, ok := isExpired(c, accessTokenClaims)
+	if !ok || expired {
+		return nil
+	}
+
 	ctx := context.TODO()
 	userId, err := store.Redis.Get(ctx, accessTokenClaims.ID).Result()
-	if err == redis.Nil {
+	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
 		})
@@ -82,6 +88,10 @@ func Register(c *fiber.Ctx) error {
 		return nil
 	}
 
+	if ok := setTokenAvailableSince(c, fmt.Sprint(user.ID)); !ok {
+		return nil
+	}
+
 	tx.Commit()
 
 	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeUser(&user))
@@ -93,11 +103,7 @@ func Login(c *fiber.Ctx) error {
 		return nil
 	}
 
-	accessToken, ok := CreateToken(c, ACCESS_TOKEN, user.ID, dotenv.GetInt("ACCESS_TOKEN_LIFETIME_IN_MINUTE"))
-	if !ok {
-		return nil
-	}
-	refreshToken, ok := CreateToken(c, REFRESH_TOKEN, user.ID, dotenv.GetInt("REFRESH_TOKEN_LIFETIME_IN_MINUTE"))
+	accessToken, refreshToken, ok := CreateTokens(c, user.ID)
 	if !ok {
 		return nil
 	}
@@ -109,39 +115,81 @@ func Login(c *fiber.Ctx) error {
 }
 
 func Refresh(c *fiber.Ctx) error {
+	accessToken := c.Cookies(ACCESS_TOKEN)
 	refreshToken := c.Cookies(REFRESH_TOKEN)
-	if len(refreshToken) == 0 {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"message": "unauthorized",
-		})
+	if len(accessToken) == 0 || len(refreshToken) == 0 {
+		var ok bool
+		accessToken, refreshToken, ok = schema.GetRefreshInput(c)
+		if !ok {
+			return nil
+		}
 	}
 
-	ctx := context.TODO()
+	accessTokenClaims, ok := ValidateToken(c, ACCESS_TOKEN, accessToken)
+	if !ok {
+		return nil
+	}
 
 	refreshTokenClaims, ok := ValidateToken(c, REFRESH_TOKEN, refreshToken)
 	if !ok {
+		return nil
+	}
+
+	expired, ok := isExpired(c, refreshTokenClaims)
+	if !ok || expired {
+		return nil
+	}
+
+	ctx := context.TODO()
+	accessTokenId, err := store.Redis.Get(ctx, refreshTokenClaims.ID).Result()
+	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
 		})
 	}
 
-	userId, err := store.Redis.Get(ctx, refreshTokenClaims.ID).Result()
-	if err == redis.Nil {
+	if accessTokenId == TOKEN_USED {
+		if ok := setTokenAvailableSince(c, refreshTokenClaims.Subject); !ok {
+			return nil
+		}
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "unauthorized",
+		})
+	}
+
+	if accessTokenId != accessTokenClaims.ID {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
 		})
 	}
 
 	var user models.User
-	store.Database.First(&user, userId)
+	store.Database.First(&user, accessTokenClaims.Subject)
+	if user.ID == 0 {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"message": "unauthorized",
+		})
+	}
 
-	accessToken, ok := CreateToken(c, ACCESS_TOKEN, user.ID, dotenv.GetInt("ACCESS_TOKEN_LIFETIME_IN_MINUTE"))
+	if _, err := store.Redis.Del(ctx, accessTokenClaims.ID).Result(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
+	if _, err := store.Redis.Set(ctx, refreshTokenClaims.ID, TOKEN_USED, time.Until(refreshTokenClaims.ExpiresAt.Time)).Result(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
+
+	accessToken, refreshToken, ok = CreateTokens(c, user.ID)
 	if !ok {
 		return nil
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		ACCESS_TOKEN: accessToken,
+		ACCESS_TOKEN:  accessToken,
+		REFRESH_TOKEN: refreshToken,
 	})
 }
 
@@ -165,7 +213,7 @@ func Logout(c *fiber.Ctx) error {
 		})
 	}
 
-	expired := time.Now().Add(-time.Hour * 24)
+	expired := time.Now().UTC().Add(-time.Hour * 24)
 	c.Cookie(&fiber.Cookie{
 		Name:    ACCESS_TOKEN,
 		Value:   "",

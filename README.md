@@ -11,11 +11,6 @@ Fill `.env`
 `go run main.go` or using [air](github.com/cosmtrek/air) for hot reloading (`go install github.com/cosmtrek/air@latest`) `air`
 
 ## TODO
-- improve JWT flow
-    - RT linked to a specific AT
-    - refresh AT returns new AT and RT
-    - RT are single use
-    - if a RT is reused, every AT and RT expire
 - websocket event on CRUD
 - TLS
 - docker image

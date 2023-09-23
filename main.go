@@ -65,7 +65,7 @@ func main() {
 	authGroup := app.Group("/auth")
 	authGroup.Post("/register", auth.Register)
 	authGroup.Post("/login", auth.Login)
-	authGroup.Get("/refresh", auth.Refresh)
+	authGroup.Post("/refresh", auth.Refresh)
 	authGroup.Get("/logout", auth.Logout)
 	authGroup.Get("/csrf", auth.GetCSRF)
 
