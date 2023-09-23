@@ -1,11 +1,5 @@
 package api
 
-// TODO
-// - sort ressources
-// - database snapshots
-// - JWT
-// - Websocket
-
 import (
 	"fmt"
 	"strconv"

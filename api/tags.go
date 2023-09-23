@@ -8,8 +8,9 @@ import (
 )
 
 func GetTags(c *fiber.Ctx) error {
+	tx := store.Database.Model(&models.Tag{})
+
 	var tags []models.Tag
-	query := store.Database
 
 	if boardIdsQuery := c.Query("boardIds"); len(boardIdsQuery) != 0 {
 		boardIds, ok := getQueryUIntArray(c, "boardIds")
@@ -17,19 +18,24 @@ func GetTags(c *fiber.Ctx) error {
 			return nil
 		}
 
-		query = query.Where("board_id IN ?", boardIds)
+		tx = tx.Where("board_id IN ?", boardIds)
 	}
 
 	userBoardIds, ok := getUserBoardIds(c)
 	if !ok {
 		return nil
 	}
-	query.Where("board_id IN ?", userBoardIds).Find(&tags)
+	tx.Where("board_id IN ?", userBoardIds).Find(&tags)
 
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTags(&tags))
 }
 
 func CreateTag(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	tag, ok := schema.GetUpsertTagInput(c)
 	if !ok {
 		return nil
@@ -39,16 +45,21 @@ func CreateTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if err := store.Database.Create(&tag).Error; err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+	if ok := store.Execute(c, tx, tx.Create(&tag).Error); !ok {
+		return nil
 	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeTag(&tag))
 }
 
 func UpdateTag(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	tag, ok := schema.GetUpsertTagInput(c)
 	if !ok {
 		return nil
@@ -58,12 +69,21 @@ func UpdateTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	store.Database.Model(&models.Tag{}).Where("id = ?", tag.ID).Updates(&tag)
+	if ok := store.Execute(c, tx, tx.Model(&models.Tag{}).Where("id = ?", tag.ID).Omit("BoardID").Updates(&tag).Error); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTag(&tag))
 }
 
 func DeleteTag(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	tagId, ok := getParamInt(c, "tag_id")
 	if !ok {
 		return nil
@@ -74,7 +94,11 @@ func DeleteTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	store.Database.Unscoped().Delete(&tag)
+	if ok := store.Execute(c, tx, tx.Unscoped().Delete(&tag).Error); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",

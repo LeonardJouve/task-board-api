@@ -63,21 +63,26 @@ func GetCSRF(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"csrf_token": csrfToken,
 	})
 }
 
 func Register(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	user, ok := schema.GetRegisterUserInput(c)
 	if !ok {
 		return nil
 	}
 
-	if err := store.Database.Create(&user).Error; err != nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+	if ok := store.Execute(c, tx, tx.Create(&user).Error); !ok {
+		return nil
 	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeUser(&user))
 }

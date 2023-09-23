@@ -8,8 +8,9 @@ import (
 )
 
 func GetCards(c *fiber.Ctx) error {
+	tx := store.Database.Model(&models.Card{})
+
 	var cards []models.Card
-	query := store.Database
 
 	if len(c.Query("columnIds")) != 0 {
 		columnIds, ok := getQueryUIntArray(c, "columnIds")
@@ -17,19 +18,24 @@ func GetCards(c *fiber.Ctx) error {
 			return nil
 		}
 
-		query = query.Where("column_id IN ?", columnIds)
+		tx = tx.Where("column_id IN ?", columnIds)
 	}
 
 	userColumnIds, ok := getUserColumnIds(c)
 	if !ok {
 		return nil
 	}
-	query.Where("column_id IN ?", userColumnIds).Find(&cards)
+	tx.Where("column_id IN ?", userColumnIds).Find(&cards)
 
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCards(&cards))
 }
 
 func AddTag(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	cardId, ok := getParamInt(c, "card_id")
 	if !ok {
 		return nil
@@ -58,7 +64,11 @@ func AddTag(c *fiber.Ctx) error {
 		})
 	}
 
-	store.Database.Model(&card).Association("Tags").Append([]models.Tag{tag})
+	if ok := store.Execute(c, tx, tx.Model(&card).Association("Tags").Append([]models.Tag{tag})); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",
@@ -66,6 +76,11 @@ func AddTag(c *fiber.Ctx) error {
 }
 
 func CreateCard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	card, ok := schema.GetUpsertCardInput(c)
 	if !ok {
 		return nil
@@ -75,22 +90,28 @@ func CreateCard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if err := store.Database.Create(&card).Error; err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+	if ok := store.Execute(c, tx, tx.Create(&card).Error); !ok {
+		return nil
 	}
 
 	var previous models.Card
-	store.Database.Where("next_id IS NULL AND column_id = ? AND id != ?", card.ColumnID, card.ID).First(&previous)
-	if previous.ID != 0 {
-		store.Database.Model(&previous).Update("next_id", &card.ID)
+	if store.Database.Where("next_id IS NULL AND column_id = ? AND id != ?", card.ColumnID, card.ID).First(&previous); previous.ID != 0 {
+		if ok := store.Execute(c, tx, tx.Model(&previous).Update("next_id", &card.ID).Error); !ok {
+			return nil
+		}
 	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeCard(&card))
 }
 
 func UpdateCard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	card, ok := schema.GetUpsertCardInput(c)
 	if !ok {
 		return nil
@@ -100,12 +121,21 @@ func UpdateCard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	store.Database.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID", "ColumnID").Updates(&card)
+	if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID", "ColumnID").Updates(&card).Error); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCard(&card))
 }
 
 func MoveCard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	cardId, ok := getParamInt(c, "card_id")
 	if !ok {
 		return nil
@@ -124,12 +154,18 @@ func MoveCard(c *fiber.Ctx) error {
 	}
 
 	if nextId == 0 {
-		store.Database.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID)
-		store.Database.Model(&models.Card{}).Where("next_id IS NULL AND column_id = ?", column.ID).Update("next_id", &card.ID)
-		store.Database.Model(&card).Updates(&models.Card{
+		if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID).Error); !ok {
+			return nil
+		}
+		if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("next_id IS NULL AND column_id = ?", column.ID).Update("next_id", &card.ID).Error); !ok {
+			return nil
+		}
+		if ok := store.Execute(c, tx, tx.Model(&card).Updates(&models.Card{
 			NextID:   nil,
 			ColumnID: column.ID,
-		})
+		}).Error); !ok {
+			return nil
+		}
 	} else {
 		next, ok := getUserCard(c, uint(nextId))
 		if !ok {
@@ -141,13 +177,21 @@ func MoveCard(c *fiber.Ctx) error {
 			})
 		}
 
-		store.Database.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID)
-		store.Database.Model(&models.Card{}).Where("next_id = ?", nextId).Update("next_id", &card.ID)
-		store.Database.Model(&card).Updates(&models.Card{
+		if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID).Error); !ok {
+			return nil
+		}
+		if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("next_id = ?", nextId).Update("next_id", &card.ID).Error); !ok {
+			return nil
+		}
+		if ok := store.Execute(c, tx, tx.Model(&card).Updates(&models.Card{
 			NextID:   &next.ID,
 			ColumnID: column.ID,
-		})
+		}).Error); !ok {
+			return nil
+		}
 	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",
@@ -155,6 +199,11 @@ func MoveCard(c *fiber.Ctx) error {
 }
 
 func DeleteCard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	cardId, ok := getParamInt(c, "card_id")
 	if !ok {
 		return nil
@@ -167,9 +216,16 @@ func DeleteCard(c *fiber.Ctx) error {
 
 	var previous models.Card
 	if store.Database.Where("next_id = ?", cardId).First(&previous); previous.ID != 0 {
-		store.Database.Model(&previous).Update("next_id", card.NextID)
+		if ok := store.Execute(c, tx, tx.Model(&previous).Update("next_id", card.NextID).Error); !ok {
+			return nil
+		}
 	}
-	store.Database.Unscoped().Delete(&card)
+
+	if ok := store.Execute(c, tx, tx.Unscoped().Delete(&card).Error); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",

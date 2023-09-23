@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/LeonardJouve/task-board-api/models"
+	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -15,6 +16,30 @@ var (
 	Database *gorm.DB
 	Redis    *redis.Client
 )
+
+func BeginTransaction(c *fiber.Ctx) (*gorm.DB, bool) {
+	tx := Database.Begin()
+	if tx.Error != nil {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return nil, false
+	}
+
+	return tx, true
+}
+
+func Execute(c *fiber.Ctx, tx *gorm.DB, err error) bool {
+	if err != nil {
+		tx.Rollback()
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+		return false
+	}
+
+	return true
+}
 
 func New() error {
 	if err := connectDatabase(); err != nil {

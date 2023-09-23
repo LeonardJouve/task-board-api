@@ -56,25 +56,6 @@
 					"response": []
 				},
 				{
-					"name": "DELETE",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{host}}/api/boards/1",
-							"host": [
-								"{{host}}"
-							],
-							"path": [
-								"api",
-								"boards",
-								"1"
-							]
-						}
-					},
-					"response": []
-				},
-				{
 					"name": "PUT",
 					"request": {
 						"method": "PUT",
@@ -128,6 +109,25 @@
 									"key": "nextId",
 									"value": "1"
 								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "DELETE",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/boards/1",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"boards",
+								"1"
 							]
 						}
 					},
@@ -763,6 +763,37 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "CSRF",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();\r",
+									"\r",
+									"pm.environment.set(\"csrf_token\", response.csrf_token);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/auth/csrf",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"auth",
+								"csrf"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		}
@@ -783,7 +814,10 @@
 			"script": {
 				"type": "text/javascript",
 				"exec": [
-					""
+					"pm.request.headers.add({",
+					"    key: 'X-CSRF-Token',",
+					"    value: pm.environment.get(\"csrf_token\"),",
+					"});"
 				]
 			}
 		},

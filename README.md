@@ -11,7 +11,6 @@ Fill `.env`
 `go run main.go` or using [air](github.com/cosmtrek/air) for hot reloading (`go install github.com/cosmtrek/air@latest`) `air`
 
 ## TODO
-- database transactions
 - improve JWT flow
     - RT linked to a specific AT
     - refresh AT returns new AT and RT

@@ -17,6 +17,11 @@ func GetBoards(c *fiber.Ctx) error {
 }
 
 func CreateBoard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	board, ok := schema.GetUpsertBoardInput(c)
 	if !ok {
 		return nil
@@ -28,18 +33,25 @@ func CreateBoard(c *fiber.Ctx) error {
 	}
 	board.OwnerID = user.ID
 
-	if err := store.Database.Create(&board).Error; err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": err.Error(),
-		})
+	if ok := store.Execute(c, tx, tx.Create(&board).Error); !ok {
+		return nil
 	}
 
-	store.Database.Model(&user).Association("Boards").Append([]models.Board{board})
+	if ok := store.Execute(c, tx, tx.Model(&user).Association("Boards").Append([]models.Board{board})); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeBoard(&board))
 }
 
 func UpdateBoard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	board, ok := schema.GetUpsertBoardInput(c)
 	if !ok {
 		return nil
@@ -49,12 +61,21 @@ func UpdateBoard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	store.Database.Model(&board).Omit("OwnerID").Updates(&board)
+	if ok := store.Execute(c, tx, tx.Model(&board).Omit("OwnerID").Updates(&board).Error); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeBoard(&board))
 }
 
 func DeleteBoard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	boardId, ok := getParamInt(c, "board_id")
 	if !ok {
 		return nil
@@ -76,7 +97,11 @@ func DeleteBoard(c *fiber.Ctx) error {
 		})
 	}
 
-	store.Database.Unscoped().Delete(&board)
+	if ok := store.Execute(c, tx, tx.Unscoped().Delete(&board).Error); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",
@@ -84,6 +109,11 @@ func DeleteBoard(c *fiber.Ctx) error {
 }
 
 func InviteBoard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	boardId, ok := getParamInt(c, "board_id")
 	if !ok {
 		return nil
@@ -104,7 +134,11 @@ func InviteBoard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	store.Database.Model(&user).Association("Boards").Append([]models.Board{board})
+	if ok := store.Execute(c, tx, tx.Model(&user).Association("Boards").Append([]models.Board{board})); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",
@@ -112,6 +146,11 @@ func InviteBoard(c *fiber.Ctx) error {
 }
 
 func LeaveBoard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+
 	boardId, ok := getParamInt(c, "board_id")
 	if !ok {
 		return nil
@@ -131,7 +170,11 @@ func LeaveBoard(c *fiber.Ctx) error {
 		})
 	}
 
-	store.Database.Model(&user).Association("Boards").Delete(&board)
+	if ok := store.Execute(c, tx, tx.Model(&user).Association("Boards").Delete(&board)); !ok {
+		return nil
+	}
+
+	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "ok",
