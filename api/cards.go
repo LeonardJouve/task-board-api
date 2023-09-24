@@ -31,7 +31,7 @@ func GetCards(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCards(&cards))
+	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCards(models.SortCards(&cards)))
 }
 
 func AddTag(c *fiber.Ctx) error {

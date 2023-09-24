@@ -14,3 +14,31 @@ type Card struct {
 	Name     string
 	Content  string
 }
+
+func SortCards(cards *[]Card) *[]Card {
+	var sortedCards []Card
+	var card Card
+	var ok bool
+	cardMap := make(map[uint]Card, len(*cards))
+	for _, c := range *cards {
+		if c.NextID == nil {
+			card = c
+			continue
+		}
+		cardMap[*c.NextID] = c
+	}
+
+	if card.ID == 0 {
+		return &[]Card{}
+	}
+
+	for {
+		sortedCards = append([]Card{card}, sortedCards...)
+		card, ok = cardMap[card.ID]
+		if !ok {
+			break
+		}
+	}
+
+	return &sortedCards
+}
