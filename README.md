@@ -12,5 +12,5 @@ Fill `.env`
 
 ## TODO
 - websocket event on CRUD
-- TLS
 - docker image
+- TLS

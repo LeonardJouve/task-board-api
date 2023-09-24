@@ -104,13 +104,13 @@ func GetLoginUserInput(c *fiber.Ctx) (models.User, bool) {
 	return user, true
 }
 
-type RefreshInput struct {
+type RefreshLogoutInput struct {
 	AccessToken  string `json:"accessToken" validate:"required"`
 	RefreshToken string `json:"refreshToken" validate:"required"`
 }
 
-func GetRefreshInput(c *fiber.Ctx) (string, string, bool) {
-	var input RefreshInput
+func GetRefreshLogoutInput(c *fiber.Ctx) (string, string, bool) {
+	var input RefreshLogoutInput
 	if err := c.BodyParser(&input); err != nil {
 		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),

@@ -119,7 +119,7 @@ func Refresh(c *fiber.Ctx) error {
 	refreshToken := c.Cookies(REFRESH_TOKEN)
 	if len(accessToken) == 0 || len(refreshToken) == 0 {
 		var ok bool
-		accessToken, refreshToken, ok = schema.GetRefreshInput(c)
+		accessToken, refreshToken, ok = schema.GetRefreshLogoutInput(c)
 		if !ok {
 			return nil
 		}
@@ -195,14 +195,27 @@ func Refresh(c *fiber.Ctx) error {
 
 func Logout(c *fiber.Ctx) error {
 	accessToken := c.Cookies(ACCESS_TOKEN)
+	refreshToken := c.Cookies(REFRESH_TOKEN)
+	if len(accessToken) == 0 || len(refreshToken) == 0 {
+		var ok bool
+		accessToken, refreshToken, ok = schema.GetRefreshLogoutInput(c)
+		if !ok {
+			return nil
+		}
+	}
+
 	accessTokenClaims, ok := ValidateToken(c, ACCESS_TOKEN, accessToken)
 	if !ok {
 		return nil
 	}
 
-	refreshToken := c.Cookies(REFRESH_TOKEN)
-	refreshTokenClaims, ok := ValidateToken(c, refreshToken, refreshToken)
+	refreshTokenClaims, ok := ValidateToken(c, REFRESH_TOKEN, refreshToken)
 	if !ok {
+		return nil
+	}
+
+	expired, ok := isExpired(c, refreshTokenClaims)
+	if !ok || expired {
 		return nil
 	}
 
@@ -213,16 +226,16 @@ func Logout(c *fiber.Ctx) error {
 		})
 	}
 
-	expired := time.Now().UTC().Add(-time.Hour * 24)
+	expires := time.Now().UTC().Add(-24 * time.Hour)
 	c.Cookie(&fiber.Cookie{
 		Name:    ACCESS_TOKEN,
 		Value:   "",
-		Expires: expired,
+		Expires: expires,
 	})
 	c.Cookie(&fiber.Cookie{
 		Name:    REFRESH_TOKEN,
 		Value:   "",
-		Expires: expired,
+		Expires: expires,
 	})
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
