@@ -1,10 +1,13 @@
 package api
 
 import (
+	"errors"
+
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 func GetMe(c *fiber.Ctx) error {
@@ -33,7 +36,12 @@ func getUserBoards(c *fiber.Ctx) ([]models.Board, bool) {
 	if !ok {
 		return []models.Board{}, false
 	}
-	store.Database.Model(&user).Preload("Boards").First(&user)
+	if err := store.Database.Model(&user).Preload("Boards").First(&user).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return []models.Board{}, false
+	}
 
 	return user.Boards, true
 }
@@ -77,7 +85,12 @@ func getUserBoardIds(c *fiber.Ctx) ([]uint, bool) {
 
 func getUserColumn(c *fiber.Ctx, columnId uint) (models.Column, bool) {
 	var column models.Column
-	store.Database.First(&column, columnId)
+	if err := store.Database.First(&column, columnId).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return models.Column{}, false
+	}
 	if column.ID == 0 {
 		c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",
@@ -99,8 +112,12 @@ func getUserColumnIds(c *fiber.Ctx) ([]uint, bool) {
 	}
 
 	var columns []models.Column
-	store.Database.Where("board_id IN ?", boardIds).Find(&columns)
-
+	if err := store.Database.Where("board_id IN ?", boardIds).Find(&columns).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return []uint{}, false
+	}
 	var columnIds []uint
 	for _, column := range columns {
 		columnIds = append(columnIds, column.ID)
@@ -111,7 +128,12 @@ func getUserColumnIds(c *fiber.Ctx) ([]uint, bool) {
 
 func getUserTag(c *fiber.Ctx, tagId uint) (models.Tag, bool) {
 	var tag models.Tag
-	store.Database.First(&tag, tagId)
+	if err := store.Database.First(&tag, tagId).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return models.Tag{}, false
+	}
 	if tag.ID == 0 {
 		c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",
@@ -128,7 +150,12 @@ func getUserTag(c *fiber.Ctx, tagId uint) (models.Tag, bool) {
 
 func getUserCard(c *fiber.Ctx, cardId uint) (models.Card, bool) {
 	var card models.Card
-	store.Database.First(&card, cardId)
+	if err := store.Database.First(&card, cardId).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return models.Card{}, false
+	}
 	if card.ID == 0 {
 		c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",

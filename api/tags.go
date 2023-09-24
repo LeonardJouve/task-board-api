@@ -25,7 +25,11 @@ func GetTags(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	tx.Where("board_id IN ?", userBoardIds).Find(&tags)
+	if tx.Where("board_id IN ?", userBoardIds).Find(&tags).Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
 
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTags(&tags))
 }

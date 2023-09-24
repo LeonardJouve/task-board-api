@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -30,7 +31,7 @@ func BeginTransaction(c *fiber.Ctx) (*gorm.DB, bool) {
 }
 
 func Execute(c *fiber.Ctx, tx *gorm.DB, err error) bool {
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		tx.Rollback()
 		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),

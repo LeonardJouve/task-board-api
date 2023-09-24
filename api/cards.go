@@ -25,7 +25,11 @@ func GetCards(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	tx.Where("column_id IN ?", userColumnIds).Find(&cards)
+	if tx.Where("column_id IN ?", userColumnIds).Find(&cards).Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
 
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCards(&cards))
 }
@@ -95,7 +99,10 @@ func CreateCard(c *fiber.Ctx) error {
 	}
 
 	var previous models.Card
-	if store.Database.Where("next_id IS NULL AND column_id = ? AND id != ?", card.ColumnID, card.ID).First(&previous); previous.ID != 0 {
+	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND column_id = ? AND id != ?", card.ColumnID, card.ID).First(&previous).Error); !ok {
+		return nil
+	}
+	if previous.ID != 0 {
 		if ok := store.Execute(c, tx, tx.Model(&previous).Update("next_id", &card.ID).Error); !ok {
 			return nil
 		}
@@ -215,7 +222,10 @@ func DeleteCard(c *fiber.Ctx) error {
 	}
 
 	var previous models.Card
-	if store.Database.Where("next_id = ?", cardId).First(&previous); previous.ID != 0 {
+	if ok := store.Execute(c, tx, tx.Where("next_id = ?", cardId).First(&previous).Error); !ok {
+		return nil
+	}
+	if previous.ID != 0 {
 		if ok := store.Execute(c, tx, tx.Model(&previous).Update("next_id", card.NextID).Error); !ok {
 			return nil
 		}

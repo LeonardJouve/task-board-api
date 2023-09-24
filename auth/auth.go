@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 const (
@@ -48,7 +50,11 @@ func Protect(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	store.Database.First(&user, userId)
+	if err := store.Database.First(&user, userId).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
 	if user.ID == 0 {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
@@ -164,7 +170,11 @@ func Refresh(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	store.Database.First(&user, accessTokenClaims.Subject)
+	if err := store.Database.First(&user, accessTokenClaims.Subject).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
 	if user.ID == 0 {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",

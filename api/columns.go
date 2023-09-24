@@ -25,7 +25,11 @@ func GetColumns(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	tx.Where("board_id IN ?", userBoardIds).Find(&columns)
+	if tx.Where("board_id IN ?", userBoardIds).Find(&columns).Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
 
 	return c.Status(fiber.StatusOK).JSON(schema.SanitizeColumns(&columns))
 }
@@ -50,7 +54,10 @@ func CreateColumn(c *fiber.Ctx) error {
 	}
 
 	var previous models.Column
-	if store.Database.Where("next_id IS NULL AND board_id = ? AND id != ?", column.BoardID, column.ID).First(&previous); previous.ID != 0 {
+	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND board_id = ? AND id != ?", column.BoardID, column.ID).First(&previous).Error); !ok {
+		return nil
+	}
+	if previous.ID != 0 {
 		if ok := store.Execute(c, tx, tx.Model(&previous).Update("next_id", &column.ID).Error); !ok {
 			return nil
 		}
@@ -156,7 +163,10 @@ func DeleteColumn(c *fiber.Ctx) error {
 	}
 
 	var previous models.Column
-	if store.Database.Where("next_id = ?", columnId).First(&previous); previous.ID != 0 {
+	if ok := store.Execute(c, tx, tx.Where("next_id = ?", columnId).First(&previous).Error); !ok {
+		return nil
+	}
+	if previous.ID != 0 {
 		if ok := store.Execute(c, tx, tx.Where(&previous).Update("next_id", column.NextID).Error); !ok {
 			return nil
 		}

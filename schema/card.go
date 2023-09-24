@@ -1,9 +1,12 @@
 package schema
 
 import (
+	"errors"
+
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type SanitizedCard struct {
@@ -16,7 +19,9 @@ type SanitizedCard struct {
 
 func SanitizeCard(card *models.Card) *SanitizedCard {
 	var c models.Card
-	store.Database.Where(&card).Preload("Tags").First(&c)
+	if err := store.Database.Where(&card).Preload("Tags").First(&c).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
 	tagIds := []uint{}
 	for _, tag := range c.Tags {
 		tagIds = append(tagIds, tag.ID)

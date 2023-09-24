@@ -122,7 +122,9 @@ func InviteBoard(c *fiber.Ctx) error {
 	userId := c.QueryInt("userId")
 
 	var user models.User
-	store.Database.First(&user, userId)
+	if ok := store.Execute(c, tx, tx.First(&user, userId).Error); !ok {
+		return nil
+	}
 	if user.ID == 0 {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"message": "not found",

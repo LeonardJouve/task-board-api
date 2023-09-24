@@ -1,10 +1,13 @@
 package schema
 
 import (
+	"errors"
+
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 type SanitizedUser struct {
@@ -86,7 +89,12 @@ func GetLoginUserInput(c *fiber.Ctx) (models.User, bool) {
 	}
 
 	var user models.User
-	store.Database.Where(&models.User{Email: input.Email}).First(&user)
+	if err := store.Database.Where(&models.User{Email: input.Email}).First(&user).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return models.User{}, false
+	}
 	if user.ID == 0 {
 		c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"message": "invalid credentials",
