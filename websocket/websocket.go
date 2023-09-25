@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 )
@@ -11,7 +12,7 @@ import (
 var MessageChannel = make(chan *Message)
 var RegisterChannel = make(chan *websocket.Conn)
 var UnregisterChannel = make(chan *websocket.Conn)
-var Connections = make(map[string]*websocket.Conn)
+var Connections = make(map[uint]*websocket.Conn)
 
 type Message struct {
 	Type       int
@@ -26,6 +27,15 @@ func close(connection *websocket.Conn) {
 
 	UnregisterChannel <- connection
 	connection.Close()
+}
+
+func getUser(connection *websocket.Conn) (models.User, bool) {
+	user, ok := connection.Locals("user").(models.User)
+	if !ok {
+		return models.User{}, false
+	}
+
+	return user, true
 }
 
 func HandleUpgrade(c *fiber.Ctx) error {
@@ -75,22 +85,28 @@ func Process() {
 				close(message.Connection)
 			}
 		case connection := <-RegisterChannel:
-			connectionId := connection.Params("id")
+			user, ok := getUser(connection)
+			if !ok {
+				close(connection)
+			}
 
 			for _, conn := range Connections {
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("registered %s", connectionId))); err != nil {
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("registered %d", user.ID))); err != nil {
 					close(conn)
 				}
 			}
 
-			Connections[connectionId] = connection
+			Connections[user.ID] = connection
 		case connection := <-UnregisterChannel:
-			connectionId := connection.Params("id")
+			user, ok := getUser(connection)
+			if !ok {
+				close(connection)
+			}
 
-			delete(Connections, connectionId)
+			delete(Connections, user.ID)
 
 			for _, conn := range Connections {
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("unregistered %s", connectionId))); err != nil {
+				if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("unregistered %d", user.ID))); err != nil {
 					close(conn)
 				}
 			}

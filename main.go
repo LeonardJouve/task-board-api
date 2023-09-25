@@ -64,8 +64,7 @@ func main() {
 
 	// /ws
 	go websocket.Process()
-	websocketGroup := app.Group("/ws" /*, auth.Protect*/, websocket.HandleUpgrade)
-	websocketGroup.Get("/:id", websocket.HandleSocket)
+	app.Get("/ws", auth.Protect, websocket.HandleUpgrade, websocket.HandleSocket)
 
 	// /auth
 	authGroup := app.Group("/auth")
