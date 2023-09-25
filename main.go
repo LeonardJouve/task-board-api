@@ -10,6 +10,7 @@ import (
 	"github.com/LeonardJouve/task-board-api/dotenv"
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
+	"github.com/LeonardJouve/task-board-api/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/csrf"
@@ -60,6 +61,11 @@ func main() {
 			})
 		},
 	}))
+
+	// /ws
+	go websocket.Process()
+	websocketGroup := app.Group("/ws" /*, auth.Protect*/, websocket.HandleUpgrade)
+	websocketGroup.Get("/:id", websocket.HandleSocket)
 
 	// /auth
 	authGroup := app.Group("/auth")

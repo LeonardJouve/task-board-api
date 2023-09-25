@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Client</title>
+</head>
+<body style="gap: 5px;">
+    <button id="send">send message</button>
+    <button id="close">close</button>
+    <script>
+        const ws = new WebSocket("ws://localhost:3000/ws/123");
+        
+        const sendElement = document.getElementById("send");
+        sendElement.onclick = () => ws.send("ping");
+
+        const closeElement = document.getElementById("close");
+        closeElement.onclick = () => ws.close();
+
+        ws.onopen = () => console.log("connection opened");
+
+        ws.onmessage = (event) => console.log(`message: ${event.data}`);
+
+        ws.onclose = () => console.log("connection closed");
+
+        ws.onerror = (error) => console.error(`error: ${error.message}`);
+    </script>
+</body>
+</html>
