@@ -11,6 +11,7 @@ import (
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"gorm.io/gorm"
 )
 
@@ -62,6 +63,7 @@ func Protect(c *fiber.Ctx) error {
 	}
 
 	c.Locals("user", user)
+	c.Locals("sessionId", utils.UUIDv4())
 
 	return c.Next()
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/utils"
 )
 
 var MessageChannel = make(chan *Message)
@@ -43,8 +42,6 @@ func HandleUpgrade(c *fiber.Ctx) error {
 	if !websocket.IsWebSocketUpgrade(c) {
 		return fiber.ErrUpgradeRequired
 	}
-
-	c.Locals("sessionId", utils.UUIDv4())
 
 	return c.Next()
 }
