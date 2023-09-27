@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Client</title>
+</head>
+<body style="gap: 5px;">
+    <button id="send">send message</button>
+    <button id="close">close</button>
+    <script>
+        async function run() {
+            let csrfToken;
+            try {
+                const result = await fetch("http://localhost:3000/auth/csrf", {
+                    method: "GET",
+                    headers: {"Accept": "application/json"},
+                });
+                const response = await result.json()
+                csrfToken = response.csrfToken
+                console.log(csrfToken)
+            } catch(e) {}
+
+            try {
+                await fetch("http://localhost:3000/auth/login", {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        "X-CSRF-Token": csrfToken,
+                    },
+                    body: JSON.stringify({email: "test@test.test", password: "testtest"})
+                });
+            } catch(e) {}
+
+            const ws = new WebSocket("ws://localhost:3000/ws");
+            
+            const sendElement = document.getElementById("send");
+            sendElement.onclick = () => ws.send("ping");
+    
+            const closeElement = document.getElementById("close");
+            closeElement.onclick = () => ws.close();
+    
+            ws.onopen = () => console.log("connection opened");
+    
+            ws.onmessage = (event) => console.log(`message: ${event.data}`);
+    
+            ws.onclose = () => console.log("connection closed");
+    
+            ws.onerror = (error) => console.error(`error: ${error.message}`, error);
+        };
+        
+        run();
+    </script>
+</body>
+</html>

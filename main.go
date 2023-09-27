@@ -36,7 +36,7 @@ func main() {
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     fmt.Sprintf("%s://%s:%s", os.Getenv("PROTOCOL"), os.Getenv("HOST"), os.Getenv("PORT")),
-		AllowHeaders:     "Origin, Content-Type, Accept",
+		AllowHeaders:     "Origin, Content-Type, Accept, X-CSRF-Token",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE",
 		AllowCredentials: true,
 	}))
@@ -61,6 +61,8 @@ func main() {
 			})
 		},
 	}))
+
+	app.Static("/", "./public")
 
 	// /ws
 	go websocket.Process()

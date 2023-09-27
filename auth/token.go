@@ -94,7 +94,7 @@ func getTokenAvailableSince(c *fiber.Ctx, userId string) (time.Time, bool) {
 }
 
 func getTokenAvailableSinceKey(userId string) string {
-	return fmt.Sprintf("%s_%s", TOKEN_AVAILABLE_SINCE, userId)
+	return fmt.Sprintf("token_available_since_%s", userId)
 }
 
 func CreateTokens(c *fiber.Ctx, userId uint) (string, string, bool) {

@@ -16,16 +16,15 @@ import (
 )
 
 const (
-	ACCESS_TOKEN          = "access_token"
-	REFRESH_TOKEN         = "refresh_token"
-	CSRF_TOKEN            = "csrf_token"
-	TOKEN_USED            = "token_used"
-	TOKEN_AVAILABLE_SINCE = "token_available_since"
+	ACCESS_TOKEN  = "access_token"
+	REFRESH_TOKEN = "refresh_token"
+	CSRF_TOKEN    = "csrf_token"
+	TOKEN_USED    = "token_used"
 )
 
 func Protect(c *fiber.Ctx) error {
 	var accessToken string
-	authorization := c.Get("authorization")
+	authorization := c.Get("Authorization")
 	if strings.HasPrefix(authorization, "Bearer ") {
 		accessToken = strings.TrimPrefix(authorization, "Bearer ")
 	} else if accessTokenCookie := c.Cookies(ACCESS_TOKEN); len(accessTokenCookie) != 0 {
@@ -77,7 +76,7 @@ func GetCSRF(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"csrf_token": csrfToken,
+		"csrfToken": csrfToken,
 	})
 }
 
@@ -117,8 +116,8 @@ func Login(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		ACCESS_TOKEN:  accessToken,
-		REFRESH_TOKEN: refreshToken,
+		"accessToken":  accessToken,
+		"refreshToken": refreshToken,
 	})
 }
 
@@ -200,8 +199,8 @@ func Refresh(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		ACCESS_TOKEN:  accessToken,
-		REFRESH_TOKEN: refreshToken,
+		"accessToken":  accessToken,
+		"refreshToken": refreshToken,
 	})
 }
 

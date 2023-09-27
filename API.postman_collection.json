@@ -690,8 +690,8 @@
 								"exec": [
 									"const response = pm.response.json();\r",
 									"\r",
-									"pm.environment.set(\"access_token\", response.access_token);\r",
-									"pm.environment.set(\"refresh_token\", response.refresh_token);"
+									"pm.environment.set(\"access_token\", response.accessToken);\r",
+									"pm.environment.set(\"refresh_token\", response.refreshToken);"
 								],
 								"type": "text/javascript"
 							}
@@ -701,19 +701,13 @@
 						"method": "POST",
 						"header": [],
 						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "email",
-									"value": "test@test.test",
-									"type": "text"
-								},
-								{
-									"key": "password",
-									"value": "testtest",
-									"type": "text"
+							"mode": "raw",
+							"raw": "{\r\n    \"email\": \"test@test.test\",\r\n    \"password\": \"testtest\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
 								}
-							]
+							}
 						},
 						"url": {
 							"raw": "{{host}}/auth/login",
@@ -773,7 +767,7 @@
 								"exec": [
 									"const response = pm.response.json();\r",
 									"\r",
-									"pm.environment.set(\"csrf_token\", response.csrf_token);"
+									"pm.environment.set(\"csrf_token\", response.csrfToken);"
 								],
 								"type": "text/javascript"
 							}
