@@ -10,6 +10,29 @@ type Column struct {
 	Name    string
 }
 
+type SanitizedColumn struct {
+	ID      uint   `json:"id"`
+	BoardID uint   `json:"boardId"`
+	Name    string `json:"name"`
+}
+
+func SanitizeColumn(column *Column) *SanitizedColumn {
+	return &SanitizedColumn{
+		ID:      column.ID,
+		BoardID: column.BoardID,
+		Name:    column.Name,
+	}
+}
+
+func SanitizeColumns(columns *[]Column) *[]SanitizedColumn {
+	sanitizedColumns := []SanitizedColumn{}
+	for _, column := range *columns {
+		sanitizedColumns = append(sanitizedColumns, *(SanitizeColumn(&column)))
+	}
+
+	return &sanitizedColumns
+}
+
 func SortColumns(columns *[]Column) *[]Column {
 	var sortedColumns []Column
 	var column Column

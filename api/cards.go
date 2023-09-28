@@ -25,13 +25,13 @@ func GetCards(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
-	if tx.Where("column_id IN ?", userColumnIds).Find(&cards).Error != nil {
+	if tx.Where("column_id IN ?", userColumnIds).Preload("Tags").Find(&cards).Error != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "server error",
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCards(models.SortCards(&cards)))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeCards(models.SortCards(&cards)))
 }
 
 func AddTag(c *fiber.Ctx) error {
@@ -110,7 +110,7 @@ func CreateCard(c *fiber.Ctx) error {
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeCard(&card))
+	return c.Status(fiber.StatusCreated).JSON(models.SanitizeCard(&card))
 }
 
 func UpdateCard(c *fiber.Ctx) error {
@@ -128,13 +128,13 @@ func UpdateCard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID", "ColumnID").Updates(&card).Error); !ok {
+	if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID", "ColumnID").Preload("Tags").Updates(&card).Error); !ok {
 		return nil
 	}
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeCard(&card))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeCard(&card))
 }
 
 func MoveCard(c *fiber.Ctx) error {

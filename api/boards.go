@@ -13,7 +13,7 @@ func GetBoards(c *fiber.Ctx) error {
 		return nil
 	}
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeBoards(&boards))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeBoards(&boards))
 }
 
 func CreateBoard(c *fiber.Ctx) error {
@@ -43,7 +43,7 @@ func CreateBoard(c *fiber.Ctx) error {
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeBoard(&board))
+	return c.Status(fiber.StatusCreated).JSON(models.SanitizeBoard(&board))
 }
 
 func UpdateBoard(c *fiber.Ctx) error {
@@ -67,7 +67,7 @@ func UpdateBoard(c *fiber.Ctx) error {
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeBoard(&board))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeBoard(&board))
 }
 
 func DeleteBoard(c *fiber.Ctx) error {

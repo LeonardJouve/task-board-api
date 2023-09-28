@@ -38,15 +38,6 @@ func getSessionId(connection *websocket.Conn) (string, bool) {
 	return sessionId, true
 }
 
-func getUser(connection *websocket.Conn) (models.User, bool) {
-	user, ok := connection.Locals("user").(models.User)
-	if !ok {
-		return models.User{}, false
-	}
-
-	return user, true
-}
-
 func HandleUpgrade(c *fiber.Ctx) error {
 	if !websocket.IsWebSocketUpgrade(c) {
 		return fiber.ErrUpgradeRequired
@@ -95,14 +86,12 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 func Process() {
 	for {
 		select {
-		case message := <-MessageChannel:
-			connection, ok := Connections[message.SessionId]
-			if !ok {
-				continue
-			}
-			if err := connection.WriteMessage(message.Type, message.Value); err != nil {
-				close(connection)
-				continue
+		case message := <-models.HookChannel:
+			for _, connection := range Connections {
+				if err := connection.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+					close(connection)
+					continue
+				}
 			}
 		case connection := <-RegisterChannel:
 			sessionId, ok := getSessionId(connection)

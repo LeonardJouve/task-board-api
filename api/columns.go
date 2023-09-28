@@ -31,7 +31,7 @@ func GetColumns(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeColumns(models.SortColumns(&columns)))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeColumns(models.SortColumns(&columns)))
 }
 
 func CreateColumn(c *fiber.Ctx) error {
@@ -65,7 +65,7 @@ func CreateColumn(c *fiber.Ctx) error {
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeColumn(&column))
+	return c.Status(fiber.StatusCreated).JSON(models.SanitizeColumn(&column))
 }
 
 func UpdateColumn(c *fiber.Ctx) error {
@@ -89,7 +89,7 @@ func UpdateColumn(c *fiber.Ctx) error {
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeColumn(&column))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeColumn(&column))
 }
 
 func MoveColumn(c *fiber.Ctx) error {

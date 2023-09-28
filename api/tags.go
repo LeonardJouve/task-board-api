@@ -31,7 +31,7 @@ func GetTags(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTags(&tags))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeTags(&tags))
 }
 
 func CreateTag(c *fiber.Ctx) error {
@@ -55,7 +55,7 @@ func CreateTag(c *fiber.Ctx) error {
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeTag(&tag))
+	return c.Status(fiber.StatusCreated).JSON(models.SanitizeTag(&tag))
 }
 
 func UpdateTag(c *fiber.Ctx) error {
@@ -79,7 +79,7 @@ func UpdateTag(c *fiber.Ctx) error {
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeTag(&tag))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeTag(&tag))
 }
 
 func DeleteTag(c *fiber.Ctx) error {

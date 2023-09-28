@@ -15,6 +15,38 @@ type Card struct {
 	Content  string
 }
 
+type SanitizedCard struct {
+	ID       uint   `json:"id"`
+	ColumnID uint   `json:"columnId"`
+	TagIDs   []uint `json:"tagIds"`
+	Name     string `json:"name"`
+	Content  string `json:"content"`
+}
+
+func SanitizeCard(card *Card) *SanitizedCard {
+	tagIds := []uint{}
+	for _, tag := range card.Tags {
+		tagIds = append(tagIds, tag.ID)
+	}
+
+	return &SanitizedCard{
+		ID:       card.ID,
+		ColumnID: card.ColumnID,
+		TagIDs:   tagIds,
+		Name:     card.Name,
+		Content:  card.Content,
+	}
+}
+
+func SanitizeCards(cards *[]Card) *[]SanitizedCard {
+	sanitizedCards := []SanitizedCard{}
+	for _, card := range *cards {
+		sanitizedCards = append(sanitizedCards, *(SanitizeCard(&card)))
+	}
+
+	return &sanitizedCards
+}
+
 func SortCards(cards *[]Card) *[]Card {
 	var sortedCards []Card
 	var card Card
