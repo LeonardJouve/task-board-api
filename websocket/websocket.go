@@ -1,7 +1,7 @@
 package websocket
 
 import (
-	"fmt"
+	"encoding/json"
 	"time"
 
 	"github.com/LeonardJouve/task-board-api/models"
@@ -9,23 +9,47 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-var MessageChannel = make(chan *Message)
-var RegisterChannel = make(chan *websocket.Conn)
-var UnregisterChannel = make(chan *websocket.Conn)
-var Connections = make(map[string]*websocket.Conn)
+var messageChannel = make(chan *Message)
+var registerChannel = make(chan RegistrationMessage)
+var unregisterChannel = make(chan RegistrationMessage)
 
-type Message struct {
+var connections = make(map[string]*websocket.Conn)
+var websocketChannels = make(map[string]map[string]struct{})
+
+type WebsocketMessage = map[string]interface{}
+
+type RegistrationMessage = struct {
+	SessionId  string
+	UserId     uint
+	Connection *websocket.Conn
+}
+
+type Message = struct {
 	Type      int
-	Value     []byte
+	Value     WebsocketMessage
 	SessionId string
 }
+
+const (
+	JOIN_TYPE       = "join"
+	LEAVE_TYPE      = "leave"
+	REGISTER_TYPE   = "register"
+	UNREGISTER_TYPE = "unregister"
+)
 
 func close(connection *websocket.Conn) {
 	if connection == nil {
 		return
 	}
 
-	UnregisterChannel <- connection
+	sessionId, ok := getSessionId(connection)
+	if ok {
+		unregisterChannel <- RegistrationMessage{
+			SessionId:  sessionId,
+			Connection: connection,
+		}
+	}
+
 	connection.Close()
 }
 
@@ -47,14 +71,17 @@ func HandleUpgrade(c *fiber.Ctx) error {
 }
 
 var HandleSocket = websocket.New(func(connection *websocket.Conn) {
-	RegisterChannel <- connection
-	defer close(connection)
-
 	sessionId, ok := getSessionId(connection)
 	if !ok {
 		close(connection)
 		return
 	}
+
+	registerChannel <- RegistrationMessage{
+		SessionId:  sessionId,
+		Connection: connection,
+	}
+	defer close(connection)
 
 	var (
 		messageType  int
@@ -70,9 +97,16 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 			break
 		}
 
-		MessageChannel <- &Message{
+		var unmarshaledMessage WebsocketMessage
+		err := json.Unmarshal(messageValue, &unmarshaledMessage)
+		_, ok := unmarshaledMessage["type"]
+		if err != nil || !ok {
+			break
+		}
+
+		messageChannel <- &Message{
 			Type:      messageType,
-			Value:     messageValue,
+			Value:     unmarshaledMessage,
 			SessionId: sessionId,
 		}
 	}
@@ -87,40 +121,89 @@ func Process() {
 	for {
 		select {
 		case message := <-models.HookChannel:
-			for _, connection := range Connections {
-				if err := connection.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-					close(connection)
+			for _, connection := range connections {
+				writeTextMessage(connection, message)
+			}
+		case message := <-messageChannel:
+			switch message.Value["type"] {
+			case JOIN_TYPE:
+				channel, ok := getWebsocketMessageString(message.Value, "channel")
+				if !ok {
 					continue
 				}
+
+				websocketChannels[channel][message.SessionId] = struct{}{}
+			case LEAVE_TYPE:
+				channel, ok := getWebsocketMessageString(message.Value, "channel")
+				if !ok {
+					continue
+				}
+
+				if _, ok := websocketChannels[channel]; !ok {
+					continue
+				}
+
+				delete(websocketChannels[channel], message.SessionId)
 			}
-		case connection := <-RegisterChannel:
-			sessionId, ok := getSessionId(connection)
-			if !ok {
-				close(connection)
-				continue
+		case message := <-registerChannel:
+			for sessionId, conn := range connections {
+				if sessionId == message.SessionId {
+					continue
+				}
+
+				writeTextMessage(conn, WebsocketMessage{
+					"type":   REGISTER_TYPE,
+					"userId": message.UserId,
+				})
 			}
 
-			for _, conn := range Connections {
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("registered %s", sessionId))); err != nil {
-					close(conn)
+			connections[message.SessionId] = message.Connection
+		case message := <-unregisterChannel:
+			for channel := range websocketChannels {
+				messageChannel <- &Message{
+					Type: websocket.TextMessage,
+					Value: WebsocketMessage{
+						"type":    LEAVE_TYPE,
+						"channel": channel,
+					},
 				}
 			}
 
-			Connections[sessionId] = connection
-		case connection := <-UnregisterChannel:
-			sessionId, ok := getSessionId(connection)
-			if !ok {
-				close(connection)
-				continue
-			}
+			delete(connections, message.SessionId)
 
-			delete(Connections, sessionId)
-
-			for _, conn := range Connections {
-				if err := conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("unregistered %s", sessionId))); err != nil {
-					close(conn)
-				}
+			for _, conn := range connections {
+				writeTextMessage(conn, WebsocketMessage{
+					"type":   UNREGISTER_TYPE,
+					"userId": message.UserId,
+				})
 			}
 		}
 	}
+}
+
+func writeTextMessage(connection *websocket.Conn, message WebsocketMessage) bool {
+	marshaledMessage, err := json.Marshal(message)
+	if err != nil {
+		return false
+	}
+
+	if err := connection.WriteMessage(websocket.TextMessage, marshaledMessage); err != nil {
+		return false
+	}
+
+	return true
+}
+
+func getWebsocketMessageString(websocketMessage WebsocketMessage, key string) (string, bool) {
+	value, ok := websocketMessage[key]
+	if !ok {
+		return "", false
+	}
+
+	channel, ok := value.(string)
+	if !ok {
+		return "", false
+	}
+
+	return channel, true
 }

@@ -35,7 +35,7 @@
             const ws = new WebSocket("ws://localhost:3000/ws");
             
             const sendElement = document.getElementById("send");
-            sendElement.onclick = () => ws.send("ping");
+            sendElement.onclick = () => ws.send({"type": "ping"});
     
             const closeElement = document.getElementById("close");
             closeElement.onclick = () => ws.close();
