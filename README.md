@@ -11,10 +11,10 @@ Fill `.env`
 `go run main.go` or using [air](github.com/cosmtrek/air) for hot reloading (`go install github.com/cosmtrek/air@latest`) `air`
 
 ## TODO
-- store userId in Connections map
-- send messages only to board users
-- websocket event on CRUD
-- REDIS persistance
+- check if user is allowed to join a board channel
+- send hookMessages in board channels
+- send join / leave messages in board channels
 - store token available since in db
-- docker image
+- REDIS persistance
 - TLS
+- docker image

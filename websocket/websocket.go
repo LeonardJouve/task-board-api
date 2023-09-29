@@ -13,8 +13,13 @@ var messageChannel = make(chan *Message)
 var registerChannel = make(chan RegistrationMessage)
 var unregisterChannel = make(chan RegistrationMessage)
 
-var connections = make(map[string]*websocket.Conn)
+var websocketConnections = make(map[string]WebsocketConnection)
 var websocketChannels = make(map[string]map[string]struct{})
+
+type WebsocketConnection = struct {
+	UserId     uint
+	Connection *websocket.Conn
+}
 
 type WebsocketMessage = map[string]interface{}
 
@@ -120,19 +125,25 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 func Process() {
 	for {
 		select {
-		case message := <-models.HookChannel:
-			for _, connection := range connections {
-				writeTextMessage(connection, message)
+		case hookMessage := <-models.HookChannel:
+			hookMessage.Message["type"] = hookMessage.Type
+			for _, websocketConnection := range websocketConnections {
+				// send channel message
+				writeTextMessage(websocketConnection.Connection, hookMessage.Message)
 			}
 		case message := <-messageChannel:
 			switch message.Value["type"] {
 			case JOIN_TYPE:
+				// if can join channel
+
 				channel, ok := getWebsocketMessageString(message.Value, "channel")
 				if !ok {
 					continue
 				}
 
 				websocketChannels[channel][message.SessionId] = struct{}{}
+
+				// send channel message
 			case LEAVE_TYPE:
 				channel, ok := getWebsocketMessageString(message.Value, "channel")
 				if !ok {
@@ -144,20 +155,25 @@ func Process() {
 				}
 
 				delete(websocketChannels[channel], message.SessionId)
+
+				// send channel message
 			}
 		case message := <-registerChannel:
-			for sessionId, conn := range connections {
+			for sessionId, websocketConnection := range websocketConnections {
 				if sessionId == message.SessionId {
 					continue
 				}
 
-				writeTextMessage(conn, WebsocketMessage{
+				writeTextMessage(websocketConnection.Connection, WebsocketMessage{
 					"type":   REGISTER_TYPE,
 					"userId": message.UserId,
 				})
 			}
 
-			connections[message.SessionId] = message.Connection
+			websocketConnections[message.SessionId] = WebsocketConnection{
+				UserId:     message.UserId,
+				Connection: message.Connection,
+			}
 		case message := <-unregisterChannel:
 			for channel := range websocketChannels {
 				messageChannel <- &Message{
@@ -169,10 +185,10 @@ func Process() {
 				}
 			}
 
-			delete(connections, message.SessionId)
+			delete(websocketConnections, message.SessionId)
 
-			for _, conn := range connections {
-				writeTextMessage(conn, WebsocketMessage{
+			for _, websocketConnection := range websocketConnections {
+				writeTextMessage(websocketConnection.Connection, WebsocketMessage{
 					"type":   UNREGISTER_TYPE,
 					"userId": message.UserId,
 				})

@@ -10,14 +10,21 @@ const (
 	DELETED_TYPE = "deleted"
 )
 
-type HookMessage map[string]interface{}
+type HookMessage = struct {
+	BoardId uint
+	Type    string
+	Message map[string]interface{}
+}
 
 var HookChannel = make(chan HookMessage)
 
 func (board *Board) AfterCreate(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type":  CREATED_TYPE,
-		"board": SanitizeBoard(board),
+		BoardId: board.ID,
+		Type:    CREATED_TYPE,
+		Message: map[string]interface{}{
+			"board": SanitizeBoard(board),
+		},
 	}
 
 	return nil
@@ -25,17 +32,25 @@ func (board *Board) AfterCreate(tx *gorm.DB) (err error) {
 
 func (column *Column) AfterCreate(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type":   CREATED_TYPE,
-		"column": SanitizeColumn(column),
+		BoardId: column.BoardID,
+		Type:    CREATED_TYPE,
+		Message: map[string]interface{}{
+			"column": SanitizeColumn(column),
+		},
 	}
 
 	return nil
 }
 
 func (card *Card) AfterCreate(tx *gorm.DB) (err error) {
+	tx.Model(card).Preload("Column").First(card)
+
 	HookChannel <- HookMessage{
-		"type": CREATED_TYPE,
-		"card": SanitizeCard(card),
+		BoardId: card.Column.BoardID,
+		Type:    CREATED_TYPE,
+		Message: map[string]interface{}{
+			"card": SanitizeCard(card),
+		},
 	}
 
 	return nil
@@ -43,8 +58,11 @@ func (card *Card) AfterCreate(tx *gorm.DB) (err error) {
 
 func (tag *Tag) AfterCreate(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type": CREATED_TYPE,
-		"tag":  SanitizeTag(tag),
+		BoardId: tag.BoardID,
+		Type:    CREATED_TYPE,
+		Message: map[string]interface{}{
+			"tag": SanitizeTag(tag),
+		},
 	}
 
 	return nil
@@ -52,8 +70,11 @@ func (tag *Tag) AfterCreate(tx *gorm.DB) (err error) {
 
 func (board *Board) AfterUpdate(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type":  UPDATED_TYPE,
-		"board": SanitizeBoard(board),
+		BoardId: board.ID,
+		Type:    UPDATED_TYPE,
+		Message: map[string]interface{}{
+			"board": SanitizeBoard(board),
+		},
 	}
 
 	return nil
@@ -61,17 +82,25 @@ func (board *Board) AfterUpdate(tx *gorm.DB) (err error) {
 
 func (column *Column) AfterUpdate(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type":   UPDATED_TYPE,
-		"column": SanitizeColumn(column),
+		BoardId: column.BoardID,
+		Type:    UPDATED_TYPE,
+		Message: map[string]interface{}{
+			"column": SanitizeColumn(column),
+		},
 	}
 
 	return nil
 }
 
 func (card *Card) AfterUpdate(tx *gorm.DB) (err error) {
+	tx.Model(card).Preload("Column").First(card)
+
 	HookChannel <- HookMessage{
-		"type": UPDATED_TYPE,
-		"card": SanitizeCard(card),
+		BoardId: card.Column.BoardID,
+		Type:    UPDATED_TYPE,
+		Message: map[string]interface{}{
+			"card": SanitizeCard(card),
+		},
 	}
 
 	return nil
@@ -79,8 +108,11 @@ func (card *Card) AfterUpdate(tx *gorm.DB) (err error) {
 
 func (tag *Tag) AfterUpdate(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type": UPDATED_TYPE,
-		"tag":  SanitizeTag(tag),
+		BoardId: tag.BoardID,
+		Type:    UPDATED_TYPE,
+		Message: map[string]interface{}{
+			"tag": SanitizeTag(tag),
+		},
 	}
 
 	return nil
@@ -88,8 +120,11 @@ func (tag *Tag) AfterUpdate(tx *gorm.DB) (err error) {
 
 func (board *Board) AfterDelete(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type":  DELETED_TYPE,
-		"board": SanitizeBoard(board),
+		BoardId: board.ID,
+		Type:    DELETED_TYPE,
+		Message: map[string]interface{}{
+			"board": SanitizeBoard(board),
+		},
 	}
 
 	return nil
@@ -97,17 +132,25 @@ func (board *Board) AfterDelete(tx *gorm.DB) (err error) {
 
 func (column *Column) AfterDelete(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type":   DELETED_TYPE,
-		"column": SanitizeColumn(column),
+		BoardId: column.BoardID,
+		Type:    DELETED_TYPE,
+		Message: map[string]interface{}{
+			"column": SanitizeColumn(column),
+		},
 	}
 
 	return nil
 }
 
 func (card *Card) AfterDelete(tx *gorm.DB) (err error) {
+	tx.Model(card).Preload("Column").First(card)
+
 	HookChannel <- HookMessage{
-		"type": DELETED_TYPE,
-		"card": SanitizeCard(card),
+		BoardId: card.Column.BoardID,
+		Type:    DELETED_TYPE,
+		Message: map[string]interface{}{
+			"card": SanitizeCard(card),
+		},
 	}
 
 	return nil
@@ -115,8 +158,11 @@ func (card *Card) AfterDelete(tx *gorm.DB) (err error) {
 
 func (tag *Tag) AfterDelete(tx *gorm.DB) (err error) {
 	HookChannel <- HookMessage{
-		"type": DELETED_TYPE,
-		"tag":  SanitizeTag(tag),
+		BoardId: tag.BoardID,
+		Type:    DELETED_TYPE,
+		Message: map[string]interface{}{
+			"tag": SanitizeTag(tag),
+		},
 	}
 
 	return nil

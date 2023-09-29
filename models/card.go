@@ -18,6 +18,7 @@ type Card struct {
 type SanitizedCard struct {
 	ID       uint   `json:"id"`
 	ColumnID uint   `json:"columnId"`
+	NextID   *uint  `json:"nextId"`
 	TagIDs   []uint `json:"tagIds"`
 	Name     string `json:"name"`
 	Content  string `json:"content"`
@@ -32,6 +33,7 @@ func SanitizeCard(card *Card) *SanitizedCard {
 	return &SanitizedCard{
 		ID:       card.ID,
 		ColumnID: card.ColumnID,
+		NextID:   card.NextID,
 		TagIDs:   tagIds,
 		Name:     card.Name,
 		Content:  card.Content,

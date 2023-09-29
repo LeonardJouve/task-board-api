@@ -13,6 +13,7 @@ type Column struct {
 type SanitizedColumn struct {
 	ID      uint   `json:"id"`
 	BoardID uint   `json:"boardId"`
+	NextID  *uint  `json:"nextId"`
 	Name    string `json:"name"`
 }
 
@@ -20,6 +21,7 @@ func SanitizeColumn(column *Column) *SanitizedColumn {
 	return &SanitizedColumn{
 		ID:      column.ID,
 		BoardID: column.BoardID,
+		NextID:  column.NextID,
 		Name:    column.Name,
 	}
 }
