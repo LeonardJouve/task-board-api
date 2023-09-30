@@ -2,6 +2,7 @@ package schema
 
 import (
 	"errors"
+	"time"
 
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/store"
@@ -9,20 +10,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
-
-type SanitizedUser struct {
-	ID    uint   `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
-func SanitizeUser(user *models.User) *SanitizedUser {
-	return &SanitizedUser{
-		ID:    user.ID,
-		Name:  user.Name,
-		Email: user.Email,
-	}
-}
 
 type RegisterInput struct {
 	Name            string `json:"name" validate:"required"`
@@ -62,9 +49,10 @@ func GetRegisterUserInput(c *fiber.Ctx) (models.User, bool) {
 	}
 
 	return models.User{
-		Name:     input.Name,
-		Email:    input.Email,
-		Password: string(hashedPassword),
+		Name:                input.Name,
+		Email:               input.Email,
+		Password:            string(hashedPassword),
+		TokenAvailableSince: time.Now().UTC(),
 	}, true
 }
 

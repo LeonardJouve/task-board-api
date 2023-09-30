@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/LeonardJouve/task-board-api/dotenv"
+	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
@@ -53,12 +54,15 @@ func createToken(c *fiber.Ctx, name string, userId uint, lifetime int) (*TokenCl
 }
 
 func isExpired(c *fiber.Ctx, claims TokenClaims) (bool, bool) {
-	tokenAvailableSince, ok := getTokenAvailableSince(c, claims.Subject)
-	if !ok {
+	var user models.User
+	if err := store.Database.Model(&models.User{}).Where("id = ?", claims.Subject).First(&user).Error; err != nil {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
 		return false, false
 	}
 
-	if claims.ExpiresAt.Before(time.Now().UTC()) || claims.IssuedAt.Before(tokenAvailableSince) {
+	if claims.ExpiresAt.Before(time.Now().UTC()) || claims.IssuedAt.Before(user.TokenAvailableSince) {
 		c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
 		})
@@ -66,35 +70,6 @@ func isExpired(c *fiber.Ctx, claims TokenClaims) (bool, bool) {
 	}
 
 	return false, true
-}
-
-func setTokenAvailableSince(c *fiber.Ctx, userId string) bool {
-	ctx := context.TODO()
-	if _, err := store.Redis.Set(ctx, getTokenAvailableSinceKey(userId), time.Now().UTC().Unix(), 0).Result(); err != nil {
-		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "server error",
-		})
-		return false
-	}
-
-	return true
-}
-
-func getTokenAvailableSince(c *fiber.Ctx, userId string) (time.Time, bool) {
-	ctx := context.TODO()
-	tokenAvailableSince, err := store.Redis.Get(ctx, getTokenAvailableSinceKey(userId)).Int64()
-	if err != nil {
-		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "server error",
-		})
-		return time.Time{}, false
-	}
-
-	return time.Unix(tokenAvailableSince, 0).UTC(), true
-}
-
-func getTokenAvailableSinceKey(userId string) string {
-	return fmt.Sprintf("token_available_since_%s", userId)
 }
 
 func CreateTokens(c *fiber.Ctx, userId uint) (string, string, bool) {

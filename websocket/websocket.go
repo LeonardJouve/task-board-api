@@ -116,7 +116,7 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 				Connection:  connection,
 			}
 		case websocket.PingMessage:
-			// TODO
+			// TODO: reply pong
 		}
 	}
 

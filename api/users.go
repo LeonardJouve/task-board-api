@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/LeonardJouve/task-board-api/models"
-	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -16,7 +15,7 @@ func GetMe(c *fiber.Ctx) error {
 		return nil
 	}
 
-	return c.Status(fiber.StatusOK).JSON(schema.SanitizeUser(&user))
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeUser(&user))
 }
 
 func getUser(c *fiber.Ctx) (models.User, bool) {

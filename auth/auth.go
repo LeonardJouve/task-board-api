@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -95,13 +94,9 @@ func Register(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := setTokenAvailableSince(c, fmt.Sprint(user.ID)); !ok {
-		return nil
-	}
-
 	tx.Commit()
 
-	return c.Status(fiber.StatusCreated).JSON(schema.SanitizeUser(&user))
+	return c.Status(fiber.StatusCreated).JSON(models.SanitizeUser(&user))
 }
 
 func Login(c *fiber.Ctx) error {
@@ -156,9 +151,20 @@ func Refresh(c *fiber.Ctx) error {
 	}
 
 	if accessTokenId == TOKEN_USED {
-		if ok := setTokenAvailableSince(c, refreshTokenClaims.Subject); !ok {
-			return nil
+		var user models.User
+		if err := store.Database.Model(&models.User{}).Where("id = ?", refreshTokenClaims.Subject).First(&user).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "server error",
+			})
 		}
+
+		if err := store.Database.Model(&user).Update("token_available_since", time.Now().Unix()).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"message": "server error",
+			})
+
+		}
+
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"message": "unauthorized",
 		})
