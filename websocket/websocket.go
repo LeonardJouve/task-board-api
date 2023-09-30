@@ -2,11 +2,17 @@ package websocket
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/LeonardJouve/task-board-api/models"
+	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 type SessionId = string
@@ -29,51 +35,28 @@ type RegistrationMessage = struct {
 }
 
 type Message = struct {
-	WebsocketType WebsocketType
-	Channel       Channel
-	MessageType   MessageType
-	Message       WebsocketMessage
-	SessionId     SessionId
+	Channel     Channel
+	MessageType MessageType
+	Message     WebsocketMessage
+	SessionId   SessionId
+	Connection  *websocket.Conn
 }
 
 const (
-	JOIN_TYPE       = "join"
-	LEAVE_TYPE      = "leave"
-	REGISTER_TYPE   = "register"
-	UNREGISTER_TYPE = "unregister"
+	JOIN_TYPE            = "join"
+	LEAVE_TYPE           = "leave"
+	REGISTER_TYPE        = "register"
+	UNREGISTER_TYPE      = "unregister"
+	PONG_TYPE            = "pong"
+	BOARD_CHANNEL_PREFIX = "board_"
 )
 
-var messageChannel = make(chan *Message)
+var textChannel = make(chan *Message)
 var registerChannel = make(chan RegistrationMessage)
 var unregisterChannel = make(chan RegistrationMessage)
 
 var websocketConnections = make(map[SessionId]WebsocketConnection)
 var websocketChannels = make(map[Channel]WebsocketChannel)
-
-func close(connection *websocket.Conn) {
-	if connection == nil {
-		return
-	}
-
-	sessionId, ok := getSessionId(connection)
-	if ok {
-		unregisterChannel <- RegistrationMessage{
-			SessionId:  sessionId,
-			Connection: connection,
-		}
-	}
-
-	connection.Close()
-}
-
-func getSessionId(connection *websocket.Conn) (string, bool) {
-	sessionId, ok := connection.Locals("sessionId").(string)
-	if !ok {
-		return "", false
-	}
-
-	return sessionId, true
-}
 
 func HandleUpgrade(c *fiber.Ctx) error {
 	if !websocket.IsWebSocketUpgrade(c) {
@@ -84,14 +67,16 @@ func HandleUpgrade(c *fiber.Ctx) error {
 }
 
 var HandleSocket = websocket.New(func(connection *websocket.Conn) {
-	sessionId, ok := getSessionId(connection)
-	if !ok {
+	sessionId, okSessionId := getSessionId(connection)
+	user, okUser := getUser(connection)
+	if !okSessionId || !okUser {
 		close(connection)
 		return
 	}
 
 	registerChannel <- RegistrationMessage{
 		SessionId:  sessionId,
+		UserId:     user.ID,
 		Connection: connection,
 	}
 	defer close(connection)
@@ -106,23 +91,32 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 			break
 		}
 
-		var unmarshaledMessage WebsocketMessage
-		err = json.Unmarshal(message, &unmarshaledMessage)
-		messageType, ok := unmarshaledMessage["type"].(string)
-		if err != nil || !ok {
-			break
-		}
-		channel, ok := unmarshaledMessage["channel"].(string)
-		if err != nil || !ok {
-			break
-		}
+		switch websocketMessageType {
+		case websocket.TextMessage:
+			var unmarshaledMessage WebsocketMessage
+			if err := json.Unmarshal(message, &unmarshaledMessage); err != nil {
+				break
+			}
 
-		messageChannel <- &Message{
-			WebsocketType: websocketMessageType,
-			Channel:       channel,
-			MessageType:   messageType,
-			Message:       unmarshaledMessage,
-			SessionId:     sessionId,
+			messageType, ok := unmarshaledMessage["type"].(string)
+			if !ok {
+				continue
+			}
+
+			channel, ok := unmarshaledMessage["channel"].(string)
+			if !ok {
+				continue
+			}
+
+			textChannel <- &Message{
+				Channel:     channel,
+				MessageType: messageType,
+				Message:     unmarshaledMessage,
+				SessionId:   sessionId,
+				Connection:  connection,
+			}
+		case websocket.PingMessage:
+			// TODO
 		}
 	}
 
@@ -136,37 +130,44 @@ func Process() {
 	for {
 		select {
 		case hookMessage := <-models.HookChannel:
-			for _, websocketConnection := range websocketConnections {
-				// send channel message
-				writeTextMessage(websocketConnection.Connection, hookMessage.Type, hookMessage.Message)
-			}
-		case message := <-messageChannel:
+			writeChannelMessage(getBoardChannel(hookMessage.BoardId), websocket.TextMessage, hookMessage.Type, hookMessage.Message)
+		case message := <-textChannel:
 			switch message.MessageType {
 			case JOIN_TYPE:
-				// if can join channel
+				if !isAllowedToJoinChannel(message.Channel, message.Connection) {
+					continue
+				}
+
+				user, ok := getUser(message.Connection)
+				if !ok {
+					continue
+				}
 
 				websocketChannels[message.Channel][message.SessionId] = struct{}{}
 
-				// send channel message
+				writeChannelMessage(message.Channel, websocket.TextMessage, message.MessageType, WebsocketMessage{
+					"userId": user.ID,
+				})
 			case LEAVE_TYPE:
-				if _, ok := websocketChannels[message.Channel]; !ok {
+				if !isUserInChannel(message.Channel, message.SessionId) {
+					continue
+				}
+
+				user, ok := getUser(message.Connection)
+				if !ok {
 					continue
 				}
 
 				delete(websocketChannels[message.Channel], message.SessionId)
 
-				// send channel message
-			}
-		case message := <-registerChannel:
-			for sessionId, websocketConnection := range websocketConnections {
-				if sessionId == message.SessionId {
-					continue
-				}
-
-				writeTextMessage(websocketConnection.Connection, REGISTER_TYPE, WebsocketMessage{
-					"userId": message.UserId,
+				writeChannelMessage(message.Channel, websocket.TextMessage, message.MessageType, WebsocketMessage{
+					"userId": user.ID,
 				})
 			}
+		case message := <-registerChannel:
+			writeGlobalMessage(websocket.TextMessage, REGISTER_TYPE, WebsocketMessage{
+				"userId": message.UserId,
+			})
 
 			websocketConnections[message.SessionId] = WebsocketConnection{
 				UserId:     message.UserId,
@@ -178,26 +179,27 @@ func Process() {
 					continue
 				}
 
-				messageChannel <- &Message{
-					WebsocketType: websocket.TextMessage,
-					Channel:       channel,
-					MessageType:   LEAVE_TYPE,
-					SessionId:     message.SessionId,
+				textChannel <- &Message{
+					Channel:     channel,
+					MessageType: LEAVE_TYPE,
+					Message:     WebsocketMessage{},
+					SessionId:   message.SessionId,
+					Connection:  message.Connection,
 				}
 			}
 
 			delete(websocketConnections, message.SessionId)
 
-			for _, websocketConnection := range websocketConnections {
-				writeTextMessage(websocketConnection.Connection, UNREGISTER_TYPE, WebsocketMessage{
-					"userId": message.UserId,
-				})
-			}
+			writeGlobalMessage(websocket.TextMessage, UNREGISTER_TYPE, WebsocketMessage{
+				"userId": message.UserId,
+			})
+
+			message.Connection.Close()
 		}
 	}
 }
 
-func writeTextMessage(connection *websocket.Conn, messageType string, message WebsocketMessage) bool {
+func writeMessage(connection *websocket.Conn, websocketType WebsocketType, messageType MessageType, message WebsocketMessage) bool {
 	message["type"] = messageType
 
 	marshaledMessage, err := json.Marshal(message)
@@ -210,4 +212,124 @@ func writeTextMessage(connection *websocket.Conn, messageType string, message We
 	}
 
 	return true
+}
+
+func writeGlobalMessage(websocketType WebsocketType, messageType MessageType, message WebsocketMessage) {
+	for _, websocketConnection := range websocketConnections {
+		writeMessage(websocketConnection.Connection, websocketType, messageType, message)
+	}
+}
+
+func writeChannelMessage(channel Channel, websocketType WebsocketType, messageType MessageType, message WebsocketMessage) {
+	message["channel"] = channel
+
+	websocketChannel, ok := websocketChannels[channel]
+	if !ok {
+		return
+	}
+
+	for member := range websocketChannel {
+		websocketConnection, ok := websocketConnections[member]
+		if !ok {
+			continue
+		}
+
+		writeMessage(websocketConnection.Connection, websocketType, messageType, message)
+	}
+}
+
+func close(connection *websocket.Conn) {
+	if connection == nil {
+		return
+	}
+
+	sessionId, okSessionId := getSessionId(connection)
+	user, okUser := getUser(connection)
+	if !okSessionId || !okUser {
+		return
+	}
+
+	unregisterChannel <- RegistrationMessage{
+		SessionId:  sessionId,
+		UserId:     user.ID,
+		Connection: connection,
+	}
+}
+
+func isAllowedToJoinChannel(channel Channel, connection *websocket.Conn) bool {
+	switch {
+	case strings.HasPrefix(channel, BOARD_CHANNEL_PREFIX):
+		boardIdString := strings.TrimPrefix(channel, BOARD_CHANNEL_PREFIX)
+		boardId, err := strconv.ParseUint(boardIdString, 10, 64)
+		if err != nil {
+			return false
+		}
+
+		return isAllowedToJoinBoardChannel(uint(boardId), connection)
+	default:
+		return false
+	}
+}
+
+func isAllowedToJoinBoardChannel(boardId uint, connection *websocket.Conn) bool {
+	boards, ok := getUserBoards(connection)
+	if !ok {
+		return false
+	}
+
+	for _, board := range boards {
+		if board.ID == boardId {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isUserInChannel(channel Channel, sessionId SessionId) bool {
+	websocketChannel, ok := websocketChannels[channel]
+	if !ok {
+		return false
+	}
+
+	if _, ok := websocketChannel[sessionId]; !ok {
+		return false
+	}
+
+	return true
+}
+
+func getBoardChannel(boardId uint) Channel {
+	return fmt.Sprintf("%s%d", BOARD_CHANNEL_PREFIX, boardId)
+}
+
+func getSessionId(connection *websocket.Conn) (SessionId, bool) {
+	sessionId, ok := connection.Locals("sessionId").(SessionId)
+	if !ok {
+		return "", false
+	}
+
+	return sessionId, true
+}
+
+func getUser(connection *websocket.Conn) (models.User, bool) {
+	user, ok := connection.Locals("user").(models.User)
+	if !ok {
+		return models.User{}, false
+	}
+
+	return user, true
+}
+
+func getUserBoards(connection *websocket.Conn) ([]models.Board, bool) {
+	user, ok := getUser(connection)
+	if !ok {
+		return []models.Board{}, false
+	}
+
+	if err := store.Database.Model(&user).Preload("Boards").First(&user).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return []models.Board{}, false
+	}
+
+	return user.Boards, true
 }
