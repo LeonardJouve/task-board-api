@@ -10,7 +10,7 @@ const (
 	DELETED_TYPE = "deleted"
 )
 
-type HookMessage = struct {
+type HookMessage struct {
 	BoardId uint
 	Type    string
 	Message map[string]interface{}

@@ -11,7 +11,8 @@ Fill `.env`
 `go run main.go` or using [air](github.com/cosmtrek/air) for hot reloading (`go install github.com/cosmtrek/air@latest`) `air`
 
 ## TODO
-- websocket connection expiration / handle ping
-- REDIS persistance
+- fix websocket connection not closed
+- fix column / card creation query error
 - TLS
+- REDIS persistance
 - docker image

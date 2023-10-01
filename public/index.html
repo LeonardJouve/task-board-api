@@ -35,14 +35,22 @@
             const ws = new WebSocket("ws://localhost:3000/ws");
             
             const sendElement = document.getElementById("send");
-            sendElement.onclick = () => ws.send({"type": "ping"});
+            sendElement.onclick = () => ws.send(JSON.stringify({"type": "ping"}));
     
             const closeElement = document.getElementById("close");
             closeElement.onclick = () => ws.close();
     
             ws.onopen = () => console.log("connection opened");
     
-            ws.onmessage = (event) => console.log(`message: ${event.data}`);
+            ws.onmessage = async (event) => {
+                console.log(`message: ${event.data}`)
+
+                const message = await JSON.parse(event.data)
+
+                if (message.type === "ping") {
+                    ws.send(JSON.stringify({"type": "pong"}))
+                }
+            };
     
             ws.onclose = () => console.log("connection closed");
     

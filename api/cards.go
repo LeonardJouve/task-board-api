@@ -99,6 +99,7 @@ func CreateCard(c *fiber.Ctx) error {
 	}
 
 	var previous models.Card
+	// TODO: Error with this query on first card creation
 	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND column_id = ? AND id != ?", card.ColumnID, card.ID).First(&previous).Error); !ok {
 		return nil
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LeonardJouve/task-board-api/dotenv"
 	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/contrib/websocket"
@@ -22,19 +23,20 @@ type WebsocketType = int
 type MessageType = string
 type WebsocketChannel = map[SessionId]struct{}
 type WebsocketMessage = map[string]interface{}
+type PongChannel = chan struct{}
 
-type WebsocketConnection = struct {
+type WebsocketConnection struct {
 	UserId     UserId
 	Connection *websocket.Conn
 }
 
-type RegistrationMessage = struct {
+type RegistrationMessage struct {
 	SessionId  SessionId
 	UserId     UserId
 	Connection *websocket.Conn
 }
 
-type Message = struct {
+type Message struct {
 	Channel     Channel
 	MessageType MessageType
 	Message     WebsocketMessage
@@ -47,6 +49,7 @@ const (
 	LEAVE_TYPE           = "leave"
 	REGISTER_TYPE        = "register"
 	UNREGISTER_TYPE      = "unregister"
+	PING_TYPE            = "ping"
 	PONG_TYPE            = "pong"
 	BOARD_CHANNEL_PREFIX = "board_"
 )
@@ -66,11 +69,47 @@ func HandleUpgrade(c *fiber.Ctx) error {
 	return c.Next()
 }
 
+func handlePingPong(connection *websocket.Conn, pongChannel *PongChannel, sessionId string) {
+	timeout := time.Duration(dotenv.GetInt("WEBSOCKET_TIMEOUT_IN_SECOND")) * time.Second
+
+	pingTicker := time.NewTicker(6 * timeout)
+	defer pingTicker.Stop()
+
+	timeoutTicker := time.NewTicker(timeout)
+	timeoutTicker.Stop()
+	defer timeoutTicker.Stop()
+
+	hasPong := true
+
+	for {
+		if connection == nil || pongChannel == nil {
+			return
+		}
+
+		select {
+		case <-*pongChannel:
+			hasPong = true
+			timeoutTicker.Stop()
+		case <-timeoutTicker.C:
+			close(sessionId)
+			return
+		case <-pingTicker.C:
+			if !hasPong {
+				continue
+			}
+			writeMessage(connection, websocket.TextMessage, PING_TYPE, WebsocketMessage{})
+			connection.WriteMessage(websocket.PingMessage, nil)
+			timeoutTicker.Reset(timeout)
+			hasPong = false
+		}
+	}
+}
+
 var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 	sessionId, okSessionId := getSessionId(connection)
 	user, okUser := getUser(connection)
 	if !okSessionId || !okUser {
-		close(connection)
+		connection.Close()
 		return
 	}
 
@@ -79,23 +118,26 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 		UserId:     user.ID,
 		Connection: connection,
 	}
-	defer close(connection)
+	defer close(sessionId)
+
+	pongChannel := make(PongChannel, 1)
+	go handlePingPong(connection, &pongChannel, sessionId)
 
 	for {
 		if connection == nil {
-			break
+			return
 		}
 
 		websocketMessageType, message, err := connection.ReadMessage()
 		if err != nil {
-			break
+			continue
 		}
 
 		switch websocketMessageType {
 		case websocket.TextMessage:
 			var unmarshaledMessage WebsocketMessage
 			if err := json.Unmarshal(message, &unmarshaledMessage); err != nil {
-				break
+				continue
 			}
 
 			messageType, ok := unmarshaledMessage["type"].(string)
@@ -103,20 +145,35 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 				continue
 			}
 
-			channel, ok := unmarshaledMessage["channel"].(string)
-			if !ok {
-				continue
-			}
+			switch messageType {
+			case PING_TYPE:
+				writeMessage(connection, websocket.TextMessage, PONG_TYPE, WebsocketMessage{})
+			case PONG_TYPE:
+				select {
+				case pongChannel <- struct{}{}:
+				default:
+				}
+			default:
+				channel, ok := unmarshaledMessage["channel"].(string)
+				if !ok {
+					continue
+				}
 
-			textChannel <- &Message{
-				Channel:     channel,
-				MessageType: messageType,
-				Message:     unmarshaledMessage,
-				SessionId:   sessionId,
-				Connection:  connection,
+				textChannel <- &Message{
+					Channel:     channel,
+					MessageType: messageType,
+					Message:     unmarshaledMessage,
+					SessionId:   sessionId,
+					Connection:  connection,
+				}
 			}
 		case websocket.PingMessage:
-			// TODO: reply pong
+			connection.WriteMessage(websocket.PongMessage, nil)
+		case websocket.PongMessage:
+			select {
+			case pongChannel <- struct{}{}:
+			default:
+			}
 		}
 	}
 
@@ -134,12 +191,12 @@ func Process() {
 		case message := <-textChannel:
 			switch message.MessageType {
 			case JOIN_TYPE:
-				if !isAllowedToJoinChannel(message.Channel, message.Connection) {
+				user, ok := getUser(message.Connection)
+				if !ok {
 					continue
 				}
 
-				user, ok := getUser(message.Connection)
-				if !ok {
+				if !isAllowedToJoinChannel(message.Channel, user) {
 					continue
 				}
 
@@ -174,32 +231,39 @@ func Process() {
 				Connection: message.Connection,
 			}
 		case message := <-unregisterChannel:
-			for channel, members := range websocketChannels {
-				if _, ok := members[message.SessionId]; !ok {
+			user, ok := getUser(message.Connection)
+			if !ok {
+				continue
+			}
+
+			for channel := range websocketChannels {
+				if !isUserInChannel(channel, message.SessionId) {
 					continue
 				}
 
-				textChannel <- &Message{
-					Channel:     channel,
-					MessageType: LEAVE_TYPE,
-					Message:     WebsocketMessage{},
-					SessionId:   message.SessionId,
-					Connection:  message.Connection,
-				}
+				delete(websocketChannels[channel], message.SessionId)
+
+				writeChannelMessage(channel, websocket.TextMessage, LEAVE_TYPE, WebsocketMessage{
+					"userId": user.ID,
+				})
 			}
+
+			message.Connection.Close()
 
 			delete(websocketConnections, message.SessionId)
 
 			writeGlobalMessage(websocket.TextMessage, UNREGISTER_TYPE, WebsocketMessage{
 				"userId": message.UserId,
 			})
-
-			message.Connection.Close()
 		}
 	}
 }
 
 func writeMessage(connection *websocket.Conn, websocketType WebsocketType, messageType MessageType, message WebsocketMessage) bool {
+	if connection == nil {
+		return false
+	}
+
 	message["type"] = messageType
 
 	marshaledMessage, err := json.Marshal(message)
@@ -238,25 +302,20 @@ func writeChannelMessage(channel Channel, websocketType WebsocketType, messageTy
 	}
 }
 
-func close(connection *websocket.Conn) {
-	if connection == nil {
-		return
-	}
-
-	sessionId, okSessionId := getSessionId(connection)
-	user, okUser := getUser(connection)
-	if !okSessionId || !okUser {
+func close(sessionId string) {
+	websocketConnection, ok := websocketConnections[sessionId]
+	if !ok {
 		return
 	}
 
 	unregisterChannel <- RegistrationMessage{
 		SessionId:  sessionId,
-		UserId:     user.ID,
-		Connection: connection,
+		UserId:     websocketConnection.UserId,
+		Connection: websocketConnection.Connection,
 	}
 }
 
-func isAllowedToJoinChannel(channel Channel, connection *websocket.Conn) bool {
+func isAllowedToJoinChannel(channel Channel, user models.User) bool {
 	switch {
 	case strings.HasPrefix(channel, BOARD_CHANNEL_PREFIX):
 		boardIdString := strings.TrimPrefix(channel, BOARD_CHANNEL_PREFIX)
@@ -265,14 +324,14 @@ func isAllowedToJoinChannel(channel Channel, connection *websocket.Conn) bool {
 			return false
 		}
 
-		return isAllowedToJoinBoardChannel(uint(boardId), connection)
+		return isAllowedToJoinBoardChannel(uint(boardId), user)
 	default:
 		return false
 	}
 }
 
-func isAllowedToJoinBoardChannel(boardId uint, connection *websocket.Conn) bool {
-	boards, ok := getUserBoards(connection)
+func isAllowedToJoinBoardChannel(boardId uint, user models.User) bool {
+	boards, ok := getUserBoards(user)
 	if !ok {
 		return false
 	}
@@ -304,6 +363,10 @@ func getBoardChannel(boardId uint) Channel {
 }
 
 func getSessionId(connection *websocket.Conn) (SessionId, bool) {
+	if connection == nil {
+		return "", false
+	}
+
 	sessionId, ok := connection.Locals("sessionId").(SessionId)
 	if !ok {
 		return "", false
@@ -313,6 +376,10 @@ func getSessionId(connection *websocket.Conn) (SessionId, bool) {
 }
 
 func getUser(connection *websocket.Conn) (models.User, bool) {
+	if connection == nil {
+		return models.User{}, false
+	}
+
 	user, ok := connection.Locals("user").(models.User)
 	if !ok {
 		return models.User{}, false
@@ -321,12 +388,7 @@ func getUser(connection *websocket.Conn) (models.User, bool) {
 	return user, true
 }
 
-func getUserBoards(connection *websocket.Conn) ([]models.Board, bool) {
-	user, ok := getUser(connection)
-	if !ok {
-		return []models.Board{}, false
-	}
-
+func getUserBoards(user models.User) ([]models.Board, bool) {
 	if err := store.Database.Model(&user).Preload("Boards").First(&user).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return []models.Board{}, false
 	}
