@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,7 +19,6 @@ import (
 )
 
 type SessionId = string
-type UserId = uint
 type Channel = string
 type WebsocketType = int
 type MessageType = string
@@ -27,9 +27,12 @@ type WebsocketMessage = map[string]interface{}
 type PongChannel = chan struct{}
 
 type WebsocketConnection struct {
-	SessionId  SessionId
-	User       models.User
-	Connection *websocket.Conn
+	SessionId    SessionId
+	User         models.User
+	Connection   *websocket.Conn
+	PongChannel  *PongChannel
+	CloseContext context.Context
+	WaitGroup    sync.WaitGroup
 	sync.Mutex
 }
 
@@ -38,6 +41,16 @@ type Message struct {
 	MessageType         MessageType
 	Message             WebsocketMessage
 	WebsocketConnection *WebsocketConnection
+}
+
+type WebsocketChannels struct {
+	Channels map[Channel]WebsocketChannel
+	sync.Mutex
+}
+
+type WebsocketConnections struct {
+	Connections map[SessionId]*WebsocketConnection
+	sync.Mutex
 }
 
 const (
@@ -54,8 +67,12 @@ var textChannel = make(chan *Message)
 var registerChannel = make(chan *WebsocketConnection)
 var unregisterChannel = make(chan *WebsocketConnection)
 
-var websocketConnections = make(map[SessionId]*WebsocketConnection)
-var websocketChannels = make(map[Channel]WebsocketChannel)
+var websocketConnections = WebsocketConnections{
+	Connections: make(map[SessionId]*WebsocketConnection),
+}
+var websocketChannels = WebsocketChannels{
+	Channels: make(map[Channel]WebsocketChannel),
+}
 
 func HandleUpgrade(c *fiber.Ctx) error {
 	if !websocket.IsWebSocketUpgrade(c) {
@@ -78,26 +95,31 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 		return
 	}
 
+	pongChannel := make(PongChannel, 1)
+
+	closeContext, cancel := context.WithCancel(context.Background())
+
 	websocketConnection := &WebsocketConnection{
-		SessionId:  sessionId,
-		User:       user,
-		Connection: connection,
+		SessionId:    sessionId,
+		User:         user,
+		Connection:   connection,
+		PongChannel:  &pongChannel,
+		CloseContext: closeContext,
 	}
 
 	registerChannel <- websocketConnection
-	defer websocketConnection.close()
+	defer func() {
+		cancel()
+		websocketConnection.WaitGroup.Wait()
+		websocketConnection.close()
+	}()
 
-	pongChannel := make(PongChannel, 1)
-	go websocketConnection.handlePingPong(&pongChannel)
+	go websocketConnection.handlePingPong()
 
 	for {
-		if websocketConnection.Connection == nil {
-			return
-		}
-
 		websocketMessageType, message, err := websocketConnection.Connection.ReadMessage()
 		if err != nil {
-			continue
+			break
 		}
 
 		switch websocketMessageType {
@@ -117,7 +139,7 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 				websocketConnection.writeMessage(websocket.TextMessage, PONG_TYPE, WebsocketMessage{})
 			case PONG_TYPE:
 				select {
-				case pongChannel <- struct{}{}:
+				case *websocketConnection.PongChannel <- struct{}{}:
 				default:
 				}
 			default:
@@ -132,13 +154,6 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 					Message:             unmarshaledMessage,
 					WebsocketConnection: websocketConnection,
 				}
-			}
-		case websocket.PingMessage:
-			websocketConnection.Connection.WriteMessage(websocket.PongMessage, nil)
-		case websocket.PongMessage:
-			select {
-			case pongChannel <- struct{}{}:
-			default:
 			}
 		}
 	}
@@ -160,17 +175,17 @@ func Process() {
 					continue
 				}
 
-				websocketChannels[message.Channel][message.WebsocketConnection.SessionId] = struct{}{}
+				websocketChannels.add(message.WebsocketConnection, message.Channel)
 
 				writeChannelMessage(message.Channel, websocket.TextMessage, message.MessageType, WebsocketMessage{
 					"userId": message.WebsocketConnection.User.ID,
 				})
 			case LEAVE_TYPE:
-				if !message.WebsocketConnection.isUserInChannel(message.Channel) {
+				if !message.WebsocketConnection.isInChannel(message.Channel) {
 					continue
 				}
 
-				delete(websocketChannels[message.Channel], message.WebsocketConnection.SessionId)
+				websocketChannels.remove(message.WebsocketConnection, message.Channel)
 
 				writeChannelMessage(message.Channel, websocket.TextMessage, message.MessageType, WebsocketMessage{
 					"userId": message.WebsocketConnection.User.ID,
@@ -181,14 +196,14 @@ func Process() {
 				"userId": websocketConnection.User.ID,
 			})
 
-			websocketConnections[websocketConnection.SessionId] = websocketConnection
+			websocketConnections.add(websocketConnection)
 		case websocketConnection := <-unregisterChannel:
-			for channel := range websocketChannels {
-				if !websocketConnection.isUserInChannel(channel) {
+			for channel := range websocketChannels.Channels {
+				if !websocketConnection.isInChannel(channel) {
 					continue
 				}
 
-				delete(websocketChannels[channel], websocketConnection.SessionId)
+				websocketChannels.remove(websocketConnection, channel)
 
 				writeChannelMessage(channel, websocket.TextMessage, LEAVE_TYPE, WebsocketMessage{
 					"userId": websocketConnection.User.ID,
@@ -197,7 +212,7 @@ func Process() {
 
 			websocketConnection.Connection.Close()
 
-			delete(websocketConnections, websocketConnection.SessionId)
+			websocketConnections.remove(websocketConnection)
 
 			writeGlobalMessage(websocket.TextMessage, UNREGISTER_TYPE, WebsocketMessage{
 				"userId": websocketConnection.User.ID,
@@ -206,7 +221,10 @@ func Process() {
 	}
 }
 
-func (websocketConnection *WebsocketConnection) handlePingPong(pongChannel *PongChannel) {
+func (websocketConnection *WebsocketConnection) handlePingPong() {
+	websocketConnection.WaitGroup.Add(1)
+	defer websocketConnection.WaitGroup.Done()
+
 	timeout := time.Duration(dotenv.GetInt("WEBSOCKET_TIMEOUT_IN_SECOND")) * time.Second
 
 	pingTicker := time.NewTicker(6 * timeout)
@@ -219,12 +237,10 @@ func (websocketConnection *WebsocketConnection) handlePingPong(pongChannel *Pong
 	hasPong := true
 
 	for {
-		if websocketConnection.Connection == nil || pongChannel == nil {
-			return
-		}
-
 		select {
-		case <-*pongChannel:
+		case <-websocketConnection.CloseContext.Done():
+			return
+		case <-*websocketConnection.PongChannel:
 			hasPong = true
 			timeoutTicker.Stop()
 		case <-timeoutTicker.C:
@@ -235,7 +251,6 @@ func (websocketConnection *WebsocketConnection) handlePingPong(pongChannel *Pong
 				continue
 			}
 			websocketConnection.writeMessage(websocket.TextMessage, PING_TYPE, WebsocketMessage{})
-			websocketConnection.Connection.WriteMessage(websocket.PingMessage, nil)
 			timeoutTicker.Reset(timeout)
 			hasPong = false
 		}
@@ -243,13 +258,13 @@ func (websocketConnection *WebsocketConnection) handlePingPong(pongChannel *Pong
 }
 
 func (websocketConnection *WebsocketConnection) close() {
+	websocketConnection.Connection.SetReadDeadline(time.Now())
 	unregisterChannel <- websocketConnection
 }
 
 func (websocketConnection *WebsocketConnection) writeMessage(websocketType WebsocketType, messageType MessageType, message WebsocketMessage) bool {
-	if websocketConnection.Connection == nil {
-		return false
-	}
+	websocketConnection.Lock()
+	defer websocketConnection.Unlock()
 
 	message["type"] = messageType
 
@@ -281,7 +296,7 @@ func (websocketConnection *WebsocketConnection) isAllowedToJoinChannel(channel C
 }
 
 func (websocketConnection *WebsocketConnection) isAllowedToJoinBoardChannel(boardId uint) bool {
-	boards, ok := websocketConnection.getUserBoards()
+	boards, ok := websocketConnection.getBoards()
 	if !ok {
 		return false
 	}
@@ -295,8 +310,8 @@ func (websocketConnection *WebsocketConnection) isAllowedToJoinBoardChannel(boar
 	return false
 }
 
-func (websocketConnection *WebsocketConnection) isUserInChannel(channel Channel) bool {
-	websocketChannel, ok := websocketChannels[channel]
+func (websocketConnection *WebsocketConnection) isInChannel(channel Channel) bool {
+	websocketChannel, ok := websocketChannels.get(channel)
 	if !ok {
 		return false
 	}
@@ -308,7 +323,7 @@ func (websocketConnection *WebsocketConnection) isUserInChannel(channel Channel)
 	return true
 }
 
-func (websocketConnection *WebsocketConnection) getUserBoards() ([]models.Board, bool) {
+func (websocketConnection *WebsocketConnection) getBoards() ([]models.Board, bool) {
 	var user models.User
 	if err := store.Database.Model(&websocketConnection.User).Preload("Boards").First(&user).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return []models.Board{}, false
@@ -318,7 +333,7 @@ func (websocketConnection *WebsocketConnection) getUserBoards() ([]models.Board,
 }
 
 func writeGlobalMessage(websocketType WebsocketType, messageType MessageType, message WebsocketMessage) {
-	for _, websocketConnection := range websocketConnections {
+	for _, websocketConnection := range websocketConnections.Connections {
 		websocketConnection.writeMessage(websocketType, messageType, message)
 	}
 }
@@ -326,13 +341,13 @@ func writeGlobalMessage(websocketType WebsocketType, messageType MessageType, me
 func writeChannelMessage(channel Channel, websocketType WebsocketType, messageType MessageType, message WebsocketMessage) {
 	message["channel"] = channel
 
-	websocketChannel, ok := websocketChannels[channel]
+	websocketChannel, ok := websocketChannels.get(channel)
 	if !ok {
 		return
 	}
 
-	for member := range websocketChannel {
-		websocketConnection, ok := websocketConnections[member]
+	for sessionId := range websocketChannel {
+		websocketConnection, ok := websocketConnections.get(sessionId)
 		if !ok {
 			continue
 		}
@@ -343,4 +358,49 @@ func writeChannelMessage(channel Channel, websocketType WebsocketType, messageTy
 
 func getBoardChannel(boardId uint) Channel {
 	return fmt.Sprintf("%s%d", BOARD_CHANNEL_PREFIX, boardId)
+}
+
+func (websocketConnections *WebsocketConnections) add(websocketConnection *WebsocketConnection) {
+	websocketConnections.Lock()
+	defer websocketConnections.Unlock()
+
+	websocketConnections.Connections[websocketConnection.SessionId] = websocketConnection
+}
+
+func (websocketConnections *WebsocketConnections) remove(websocketConnection *WebsocketConnection) {
+	websocketConnections.Lock()
+	defer websocketConnections.Unlock()
+
+	delete(websocketConnections.Connections, websocketConnection.SessionId)
+}
+
+func (websocketConnections *WebsocketConnections) get(sessionId SessionId) (*WebsocketConnection, bool) {
+	websocketConnections.Lock()
+	defer websocketConnections.Unlock()
+
+	websocketConnection, ok := websocketConnections.Connections[sessionId]
+
+	return websocketConnection, ok
+}
+
+func (websocketChannels *WebsocketChannels) add(websocketConnection *WebsocketConnection, channel Channel) {
+	websocketChannels.Lock()
+	defer websocketChannels.Unlock()
+
+	websocketChannels.Channels[channel][websocketConnection.SessionId] = struct{}{}
+}
+
+func (websocketChannels *WebsocketChannels) remove(websocketConnection *WebsocketConnection, channel Channel) {
+	websocketChannels.Lock()
+	defer websocketChannels.Unlock()
+
+	delete(websocketChannels.Channels[channel], websocketConnection.SessionId)
+}
+func (websocketChannels *WebsocketChannels) get(channel Channel) (WebsocketChannel, bool) {
+	websocketChannels.Lock()
+	defer websocketChannels.Unlock()
+
+	websocketChannel, ok := websocketChannels.Channels[channel]
+
+	return websocketChannel, ok
 }

@@ -7,30 +7,24 @@
 <body style="gap: 5px;">
     <button id="send">send message</button>
     <button id="close">close</button>
+    <button id="keepalive">keepalive: <span id="keepaliveSpan"></span></button>
     <script>
         async function run() {
-            let csrfToken;
-            try {
-                const result = await fetch("http://localhost:3000/auth/csrf", {
-                    method: "GET",
-                    headers: {"Accept": "application/json"},
-                });
-                const response = await result.json()
-                csrfToken = response.csrfToken
-                console.log(csrfToken)
-            } catch(e) {}
+            const result = await fetch("http://localhost:3000/auth/csrf", {
+                method: "GET",
+                headers: {"Accept": "application/json"},
+            });
+            const csrfToken = (await result.json()).csrfToken;
 
-            try {
-                await fetch("http://localhost:3000/auth/login", {
-                    method: "POST",
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        "X-CSRF-Token": csrfToken,
-                    },
-                    body: JSON.stringify({email: "test@test.test", password: "testtest"})
-                });
-            } catch(e) {}
+            await fetch("http://localhost:3000/auth/login", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    "X-CSRF-Token": csrfToken,
+                },
+                body: JSON.stringify({email: "test@test.test", password: "testtest"}),
+            });
 
             const ws = new WebSocket("ws://localhost:3000/ws");
             
@@ -39,6 +33,15 @@
     
             const closeElement = document.getElementById("close");
             closeElement.onclick = () => ws.close();
+
+            let keepalive = true;
+            const keepaliveElement = document.getElementById("keepalive");
+            const keepaliveSpan = document.getElementById("keepaliveSpan");
+            keepaliveSpan.innerText = keepalive
+            keepaliveElement.onclick = () => {
+                keepalive = !keepalive;
+                keepaliveSpan.innerText = keepalive
+            };
     
             ws.onopen = () => console.log("connection opened");
     
@@ -47,7 +50,7 @@
 
                 const message = await JSON.parse(event.data)
 
-                if (message.type === "ping") {
+                if (keepalive && message.type === "ping") {
                     ws.send(JSON.stringify({"type": "pong"}))
                 }
             };
