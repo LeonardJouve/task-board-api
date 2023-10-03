@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,13 +24,14 @@ type MessageType = string
 type WebsocketChannel = map[SessionId]struct{}
 type WebsocketMessage = map[string]interface{}
 type PongChannel = chan struct{}
+type CloseChannel = chan struct{}
 
 type WebsocketConnection struct {
 	SessionId    SessionId
 	User         models.User
 	Connection   *websocket.Conn
 	PongChannel  *PongChannel
-	CloseContext context.Context
+	CloseChannel *CloseChannel
 	WaitGroup    sync.WaitGroup
 	sync.Mutex
 }
@@ -96,20 +96,18 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 	}
 
 	pongChannel := make(PongChannel, 1)
-
-	closeContext, cancel := context.WithCancel(context.Background())
+	closeChannel := make(CloseChannel, 1)
 
 	websocketConnection := &WebsocketConnection{
 		SessionId:    sessionId,
 		User:         user,
 		Connection:   connection,
 		PongChannel:  &pongChannel,
-		CloseContext: closeContext,
+		CloseChannel: &closeChannel,
 	}
 
 	registerChannel <- websocketConnection
 	defer func() {
-		cancel()
 		websocketConnection.WaitGroup.Wait()
 		websocketConnection.close()
 	}()
@@ -238,7 +236,7 @@ func (websocketConnection *WebsocketConnection) handlePingPong() {
 
 	for {
 		select {
-		case <-websocketConnection.CloseContext.Done():
+		case <-*websocketConnection.CloseChannel:
 			return
 		case <-*websocketConnection.PongChannel:
 			hasPong = true
@@ -258,6 +256,13 @@ func (websocketConnection *WebsocketConnection) handlePingPong() {
 }
 
 func (websocketConnection *WebsocketConnection) close() {
+	select {
+	case _, ok := <-*websocketConnection.CloseChannel:
+		if ok {
+			close(*websocketConnection.CloseChannel)
+		}
+	default:
+	}
 	websocketConnection.Connection.SetReadDeadline(time.Now())
 	unregisterChannel <- websocketConnection
 }
