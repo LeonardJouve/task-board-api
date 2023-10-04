@@ -19,12 +19,14 @@ import (
 )
 
 func main() {
-	env, err := os.Open(".env")
-	if err != nil {
-		panic(err.Error())
+	if os.Getenv("ENVIRONMENT") != "PRODUCTION" {
+		env, err := os.Open(".env")
+		if err != nil {
+			panic(err.Error())
+		}
+		oldEnv := dotenv.Load(env)
+		defer oldEnv.Restore()
 	}
-	oldEnv := dotenv.Load(env)
-	defer oldEnv.Restore()
 
 	if err := store.New(); err != nil {
 		panic(err.Error())
@@ -115,7 +117,7 @@ func main() {
 	usersGroup := apiGroup.Group("/users")
 	usersGroup.Get("/me", api.GetMe)
 
-	err = app.Listen(fmt.Sprintf("%s:%s", os.Getenv("HOST"), os.Getenv("PORT")))
+	err := app.Listen(fmt.Sprintf("%s:%s", os.Getenv("HOST"), os.Getenv("PORT")))
 	if err != nil {
 		panic(err.Error())
 	}

@@ -82,7 +82,8 @@ func connectRedis() error {
 	ctx := context.TODO()
 
 	Redis = redis.NewClient(&redis.Options{
-		Addr: fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
+		Addr:     fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
+		Password: os.Getenv("REDIS_PASSWORD"),
 	})
 
 	if _, err := Redis.Ping(ctx).Result(); err != nil {
