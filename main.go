@@ -54,8 +54,9 @@ func main() {
 		Expiration:     time.Duration((dotenv.GetInt("CSRF_TOKEN_LIFETIME_IN_MINUTE"))) * time.Minute,
 		KeyGenerator:   utils.UUIDv4,
 		Storage: redis.New(redis.Config{
-			Host: os.Getenv("REDIS_HOST"),
-			Port: dotenv.GetInt("REDIS_PORT"),
+			Host:     os.Getenv("REDIS_HOST"),
+			Port:     dotenv.GetInt("REDIS_PORT"),
+			Password: os.Getenv("REDIS_PASSWORD"),
 		}),
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
