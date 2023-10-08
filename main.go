@@ -119,11 +119,7 @@ func main() {
 	usersGroup.Get("/me", api.GetMe)
 
 	var err error
-	if os.Getenv("PROTOCOL") == "https" {
-		err = app.ListenTLS(fmt.Sprintf("%s:%s", os.Getenv("HOST"), os.Getenv("PORT")), os.Getenv("CERT_PATH"), os.Getenv("KEY_PATH"))
-	} else {
-		err = app.Listen(fmt.Sprintf("%s:%s", os.Getenv("HOST"), os.Getenv("PORT")))
-	}
+	err = app.Listen(fmt.Sprintf(":%s", os.Getenv("PORT")))
 	if err != nil {
 		panic(err.Error())
 	}
