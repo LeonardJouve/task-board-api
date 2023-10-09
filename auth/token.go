@@ -45,7 +45,7 @@ func createToken(c *fiber.Ctx, name string, userId uint, lifetime int) (*TokenCl
 		Value:    token,
 		Path:     "/",
 		MaxAge:   lifetime * 60,
-		Secure:   false,
+		Secure:   true,
 		HTTPOnly: true,
 		Domain:   os.Getenv("HOST"),
 	})

@@ -37,7 +37,7 @@ func main() {
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     fmt.Sprintf("%s://%s:%s", os.Getenv("PROTOCOL"), os.Getenv("HOST"), os.Getenv("PORT")),
+		AllowOrigins:     fmt.Sprintf("http://%s:%s", os.Getenv("HOST"), os.Getenv("PORT")),
 		AllowHeaders:     "Origin, Content-Type, Accept, X-CSRF-Token",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE",
 		AllowCredentials: true,
@@ -49,7 +49,7 @@ func main() {
 		CookieName:     auth.CSRF_TOKEN,
 		CookieDomain:   os.Getenv("HOST"),
 		CookiePath:     "/",
-		CookieSecure:   os.Getenv("PROTOCOL") == "https",
+		CookieSecure:   true,
 		CookieSameSite: "Lax",
 		Expiration:     time.Duration((dotenv.GetInt("CSRF_TOKEN_LIFETIME_IN_MINUTE"))) * time.Minute,
 		KeyGenerator:   utils.UUIDv4,
@@ -64,8 +64,6 @@ func main() {
 			})
 		},
 	}))
-
-	app.Static("/", "./public")
 
 	// /ws
 	go websocket.Process()
