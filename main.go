@@ -37,7 +37,7 @@ func main() {
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     fmt.Sprintf("http://%s:%s", os.Getenv("HOST"), os.Getenv("PORT")),
+		AllowOrigins:     "*",
 		AllowHeaders:     "Origin, Content-Type, Accept, X-CSRF-Token",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE",
 		AllowCredentials: true,

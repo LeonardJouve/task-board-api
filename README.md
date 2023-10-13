@@ -13,7 +13,5 @@ Fill `.env`
 ## TODO
 - websocket / webserver Allowed Origins
 - Cookies configuration
-- Remove public folder
-- TLS
 - REDIS persistance
 - docker image
