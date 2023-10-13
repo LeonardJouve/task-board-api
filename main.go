@@ -37,7 +37,7 @@ func main() {
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:5173", // TODO
+		AllowOrigins:     "https://localhost:5173", // TODO
 		AllowHeaders:     "Origin, Content-Type, Accept, X-CSRF-Token",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE",
 		AllowCredentials: true,
