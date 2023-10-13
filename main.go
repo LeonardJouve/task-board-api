@@ -60,7 +60,8 @@ func main() {
 		}),
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"message": "invalid csrf token",
+				"id":             "api.rest.error.invalid_csrf",
+				"defaultMessage": "invalid csrf token",
 			})
 		},
 	}))
