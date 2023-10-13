@@ -77,9 +77,6 @@ func CreateTokens(c *fiber.Ctx, userId uint) (string, string, bool) {
 
 	accessClaims, accessToken, ok := createToken(c, ACCESS_TOKEN, userId, dotenv.GetInt("ACCESS_TOKEN_LIFETIME_IN_MINUTE"))
 	if !ok {
-		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "server error",
-		})
 		return "", "", false
 	}
 	if err := store.Redis.Set(ctx, accessClaims.ID, userId, time.Until(accessClaims.ExpiresAt.Time)).Err(); err != nil {
@@ -91,9 +88,6 @@ func CreateTokens(c *fiber.Ctx, userId uint) (string, string, bool) {
 
 	refreshClaims, refreshToken, ok := createToken(c, REFRESH_TOKEN, userId, dotenv.GetInt("REFRESH_TOKEN_LIFETIME_IN_MINUTE"))
 	if !ok {
-		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"message": "server error",
-		})
 		return "", "", false
 	}
 	if err := store.Redis.Set(ctx, refreshClaims.ID, accessClaims.ID, time.Until(refreshClaims.ExpiresAt.Time)).Err(); err != nil {

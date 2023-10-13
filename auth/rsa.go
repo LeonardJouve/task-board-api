@@ -7,13 +7,20 @@ import (
 	"encoding/pem"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 func getKeyPEM(c *fiber.Ctx, name string, private bool) ([]byte, bool) {
-	filename := getRSAFilename(name, private)
+	filename, err := getRSAFilename(name, private)
+	if err != nil {
+		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+		return nil, false
+	}
 
 	var keyPEM []byte
 
@@ -91,8 +98,16 @@ func generateKeys(name string) ([]byte, []byte, error) {
 		},
 	)
 
-	publicFilename := getRSAFilename(name, false)
-	privateFilename := getRSAFilename(name, true)
+	publicFilename, err := getRSAFilename(name, false)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	privateFilename, err := getRSAFilename(name, true)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	if err := os.WriteFile(publicFilename, publicPEM, 0755); err != nil {
 		return nil, nil, err
 	}
@@ -106,11 +121,16 @@ func generateKeys(name string) ([]byte, []byte, error) {
 	return publicPEM, privatePEM, nil
 }
 
-func getRSAFilename(name string, private bool) string {
-	filename := "rsa/" + name + ".rsa"
+func getRSAFilename(name string, private bool) (string, error) {
+	path, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	filename := filepath.Join(filepath.Dir(path), "rsa/"+name+".rsa")
 	if !private {
 		filename += ".pub"
 	}
 
-	return filename
+	return filename, nil
 }
