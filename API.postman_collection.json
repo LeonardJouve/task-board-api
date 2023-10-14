@@ -665,6 +665,11 @@
 									"key": "passwordConfirm",
 									"value": "testtest",
 									"type": "text"
+								},
+								{
+									"key": "username",
+									"value": "test",
+									"type": "text"
 								}
 							]
 						},
