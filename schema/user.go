@@ -14,6 +14,7 @@ import (
 type RegisterInput struct {
 	Name            string `json:"name" validate:"required"`
 	Email           string `json:"email" validate:"required,email"`
+	Username        string `json:"username" validate:"required"`
 	Password        string `json:"password" validate:"required,min=8"`
 	PasswordConfirm string `json:"passwordConfirm" validate:"required,min=8"`
 }
@@ -51,6 +52,7 @@ func GetRegisterUserInput(c *fiber.Ctx) (models.User, bool) {
 	return models.User{
 		Name:                input.Name,
 		Email:               input.Email,
+		Username:            input.Username,
 		Password:            string(hashedPassword),
 		TokenAvailableSince: time.Now().UTC(),
 	}, true

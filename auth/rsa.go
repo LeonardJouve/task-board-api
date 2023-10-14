@@ -14,7 +14,7 @@ import (
 )
 
 func getKeyPEM(c *fiber.Ctx, name string, private bool) ([]byte, bool) {
-	filename, err := getRSAFilename(name, private)
+	filename, err := getRSAFilepath(name, private)
 	if err != nil {
 		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": "server error",
@@ -98,12 +98,12 @@ func generateKeys(name string) ([]byte, []byte, error) {
 		},
 	)
 
-	publicFilename, err := getRSAFilename(name, false)
+	publicFilename, err := getRSAFilepath(name, false)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	privateFilename, err := getRSAFilename(name, true)
+	privateFilename, err := getRSAFilepath(name, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -121,16 +121,26 @@ func generateKeys(name string) ([]byte, []byte, error) {
 	return publicPEM, privatePEM, nil
 }
 
-func getRSAFilename(name string, private bool) (string, error) {
+func getRSAFilepath(name string, private bool) (string, error) {
 	path, err := os.Executable()
 	if err != nil {
 		return "", err
 	}
 
-	filename := filepath.Join(filepath.Dir(path), "rsa/"+name+".rsa")
+	folderpath := filepath.Join(filepath.Dir(path), "..", "rsa")
+
+	if _, err := os.Stat(folderpath); err != nil {
+		if err = os.Mkdir(folderpath, 0755); err != nil {
+			return "", err
+		}
+	}
+
+	filename := name + ".rsa"
 	if !private {
 		filename += ".pub"
 	}
 
-	return filename, nil
+	filepath := filepath.Join(folderpath, filename)
+
+	return filepath, nil
 }

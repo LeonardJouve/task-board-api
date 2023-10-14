@@ -9,6 +9,7 @@ import (
 	"github.com/LeonardJouve/task-board-api/auth"
 	"github.com/LeonardJouve/task-board-api/dotenv"
 	"github.com/LeonardJouve/task-board-api/schema"
+	"github.com/LeonardJouve/task-board-api/static"
 	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/LeonardJouve/task-board-api/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -66,6 +67,13 @@ func main() {
 		},
 	}))
 
+	assetsPath, err := static.Assets()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	app.Static("/assets", assetsPath)
+
 	// /ws
 	go websocket.Process()
 	app.Get("/ws", auth.Protect, websocket.HandleUpgrade, websocket.HandleSocket)
@@ -117,7 +125,6 @@ func main() {
 	usersGroup := apiGroup.Group("/users")
 	usersGroup.Get("/me", api.GetMe)
 
-	var err error
 	err = app.Listen(fmt.Sprintf(":%s", os.Getenv("PORT")))
 	if err != nil {
 		panic(err.Error())
