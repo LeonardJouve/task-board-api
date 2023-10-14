@@ -91,6 +91,7 @@ func main() {
 	// /api/boards
 	boardsGroup := apiGroup.Group("/boards")
 	boardsGroup.Get("/", api.GetBoards)
+	boardsGroup.Get("/:board_id", api.GetBoard)
 	boardsGroup.Get("/:board_id/invite", api.InviteBoard)
 	boardsGroup.Get("/:board_id/leave", api.LeaveBoard)
 	boardsGroup.Post("/", api.CreateBoard)

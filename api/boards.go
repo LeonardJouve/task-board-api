@@ -16,6 +16,20 @@ func GetBoards(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(models.SanitizeBoards(&boards))
 }
 
+func GetBoard(c *fiber.Ctx) error {
+	boardId, ok := getParamInt(c, "board_id")
+	if !ok {
+		return nil
+	}
+
+	board, ok := getUserBoard(c, uint(boardId))
+	if !ok {
+		return nil
+	}
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeBoard(&board))
+}
+
 func CreateBoard(c *fiber.Ctx) error {
 	tx, ok := store.BeginTransaction(c)
 	if !ok {
