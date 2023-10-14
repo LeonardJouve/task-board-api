@@ -10,7 +10,7 @@
 			"name": "boards",
 			"item": [
 				{
-					"name": "GET",
+					"name": "GET BOARDS",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -22,6 +22,25 @@
 							"path": [
 								"api",
 								"boards"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET BOARD",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/boards/1",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"boards",
+								"1"
 							]
 						}
 					},
