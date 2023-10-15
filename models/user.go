@@ -34,3 +34,12 @@ func SanitizeUser(user *User) *SanitizedUser {
 		Picture:  user.Picture,
 	}
 }
+
+func SanitizeUsers(users *[]User) *[]SanitizedUser {
+	sanitizedUsers := []SanitizedUser{}
+	for _, user := range *users {
+		sanitizedUsers = append(sanitizedUsers, *SanitizeUser(&user))
+	}
+
+	return &sanitizedUsers
+}

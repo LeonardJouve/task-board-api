@@ -34,6 +34,20 @@ func GetCards(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(models.SanitizeCards(models.SortCards(&cards)))
 }
 
+func GetCard(c *fiber.Ctx) error {
+	cardId, ok := getParamInt(c, "card_id")
+	if !ok {
+		return nil
+	}
+
+	card, ok := getUserCard(c, uint(cardId))
+	if !ok {
+		return nil
+	}
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeCard(&card))
+}
+
 func AddTag(c *fiber.Ctx) error {
 	tx, ok := store.BeginTransaction(c)
 	if !ok {

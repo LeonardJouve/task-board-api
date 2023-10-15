@@ -34,6 +34,20 @@ func GetColumns(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(models.SanitizeColumns(models.SortColumns(&columns)))
 }
 
+func GetColumn(c *fiber.Ctx) error {
+	columnId, ok := getParamInt(c, "column_id")
+	if !ok {
+		return nil
+	}
+
+	column, ok := getUserColumn(c, uint(columnId))
+	if !ok {
+		return nil
+	}
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeColumn(&column))
+}
+
 func CreateColumn(c *fiber.Ctx) error {
 	tx, ok := store.BeginTransaction(c)
 	if !ok {

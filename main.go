@@ -101,6 +101,7 @@ func main() {
 	// /api/columns
 	columnsGroup := apiGroup.Group("/columns")
 	columnsGroup.Get("/", api.GetColumns)
+	columnsGroup.Get("/:column_id", api.GetColumn)
 	columnsGroup.Post("/", api.CreateColumn)
 	columnsGroup.Put("/", api.UpdateColumn)
 	columnsGroup.Patch("/:column_id", api.MoveColumn)
@@ -109,6 +110,7 @@ func main() {
 	// /api/cards
 	cardsGroup := apiGroup.Group("/cards")
 	cardsGroup.Get("/", api.GetCards)
+	cardsGroup.Get("/:card_id", api.GetCard)
 	cardsGroup.Get("/:card_id/tag", api.AddTag)
 	cardsGroup.Post("/", api.CreateCard)
 	cardsGroup.Put("/", api.UpdateCard)
@@ -118,6 +120,7 @@ func main() {
 	// /api/tags
 	tagsGroup := apiGroup.Group("/tags")
 	tagsGroup.Get("/", api.GetTags)
+	tagsGroup.Get("/:tag_id", api.GetTag)
 	tagsGroup.Post("/", api.CreateTag)
 	tagsGroup.Put("/", api.UpdateTag)
 	tagsGroup.Delete("/:tag_id", api.DeleteTag)
@@ -125,6 +128,8 @@ func main() {
 	// /api/users
 	usersGroup := apiGroup.Group("/users")
 	usersGroup.Get("/me", api.GetMe)
+	usersGroup.Get("/", api.GetUsers)
+	usersGroup.Get("/:user_id", api.GetUser)
 
 	err = app.Listen(fmt.Sprintf(":%s", os.Getenv("PORT")))
 	if err != nil {

@@ -9,6 +9,45 @@ import (
 	"gorm.io/gorm"
 )
 
+func GetUsers(c *fiber.Ctx) error {
+	tx := store.Database.Model(&models.User{})
+
+	var users []models.User
+
+	if boardIdsQuery := c.Query("boardIds"); len(boardIdsQuery) != 0 {
+		boardIds, ok := getQueryUIntArray(c, "boardIds")
+		if !ok {
+			return nil
+		}
+
+		tx = tx.Preload("Boards").Where("boards.id IN ?", boardIds)
+	}
+
+	if tx.Find(&users).Error != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"message": "server error",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeUsers(&users))
+}
+
+func GetUser(c *fiber.Ctx) error {
+	userId, ok := getParamInt(c, "user_id")
+	if !ok {
+		return nil
+	}
+
+	var user models.User
+	if err := store.Database.Model(&models.User{}).Where("id = ?", userId).First(&user).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeUser(&user))
+}
+
 func GetMe(c *fiber.Ctx) error {
 	user, ok := getUser(c)
 	if !ok {

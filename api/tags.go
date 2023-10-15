@@ -34,6 +34,20 @@ func GetTags(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(models.SanitizeTags(&tags))
 }
 
+func GetTag(c *fiber.Ctx) error {
+	tagId, ok := getParamInt(c, "tag_id")
+	if !ok {
+		return nil
+	}
+
+	tag, ok := getUserTag(c, uint(tagId))
+	if !ok {
+		return nil
+	}
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeTag(&tag))
+}
+
 func CreateTag(c *fiber.Ctx) error {
 	tx, ok := store.BeginTransaction(c)
 	if !ok {

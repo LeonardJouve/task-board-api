@@ -204,7 +204,7 @@
 			"name": "columns",
 			"item": [
 				{
-					"name": "GET",
+					"name": "GET COLUMNS",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -223,6 +223,25 @@
 									"value": "1,2,3",
 									"disabled": true
 								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET COLUMN",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/columns/1",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"columns",
+								"1"
 							]
 						}
 					},
@@ -350,7 +369,7 @@
 			"name": "card",
 			"item": [
 				{
-					"name": "GET",
+					"name": "GET CARDS",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -369,6 +388,25 @@
 									"value": "1,2,3",
 									"disabled": true
 								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET CARD",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/cards/1",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"cards",
+								"1"
 							]
 						}
 					},
@@ -532,7 +570,7 @@
 			"name": "tags",
 			"item": [
 				{
-					"name": "GET",
+					"name": "GET TAGS",
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -551,6 +589,25 @@
 									"value": "1,2,3",
 									"disabled": true
 								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET TAG",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/tags/1",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"tags",
+								"1"
 							]
 						}
 					},
@@ -646,6 +703,67 @@
 							"path": [
 								"api",
 								"tags",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "users",
+			"item": [
+				{
+					"name": "ME",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/users/me",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET USERS",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/users",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "GET USER",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/users/1",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"users",
 								"1"
 							]
 						}
