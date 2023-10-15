@@ -36,7 +36,7 @@ func CreateBoard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	board, ok := schema.GetUpsertBoardInput(c)
+	board, ok := schema.GetCreateBoardInput(c)
 	if !ok {
 		return nil
 	}
@@ -66,16 +66,21 @@ func UpdateBoard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	board, ok := schema.GetUpsertBoardInput(c)
+	boardId, ok := getParamInt(c, "board_id")
 	if !ok {
 		return nil
 	}
 
-	if _, ok := getUserBoard(c, board.ID); !ok {
+	if _, ok := getUserBoard(c, uint(boardId)); !ok {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&board).Omit("OwnerID").Updates(&board).Error); !ok {
+	board, ok := schema.GetUpdateBoardInput(c, uint(boardId))
+	if !ok {
+		return nil
+	}
+
+	if ok := store.Execute(c, tx, tx.Model(&board).Updates(&board).Error); !ok {
 		return nil
 	}
 
@@ -118,7 +123,7 @@ func DeleteBoard(c *fiber.Ctx) error {
 	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"status": "ok",
 	})
 }
 
@@ -157,7 +162,7 @@ func InviteBoard(c *fiber.Ctx) error {
 	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"status": "ok",
 	})
 }
 
@@ -193,6 +198,6 @@ func LeaveBoard(c *fiber.Ctx) error {
 	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"status": "ok",
 	})
 }

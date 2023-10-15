@@ -256,6 +256,6 @@ func Logout(c *fiber.Ctx) error {
 	})
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"status": "ok",
 	})
 }

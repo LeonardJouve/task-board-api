@@ -119,6 +119,6 @@ func DeleteTag(c *fiber.Ctx) error {
 	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"status": "ok",
 	})
 }

@@ -12,7 +12,7 @@ func getParamInt(c *fiber.Ctx, name string) (int, bool) {
 	param, err := c.ParamsInt(name)
 	if err != nil {
 		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "invalid board_id",
+			"message": fmt.Sprintf("invalid %s", name),
 		})
 		return 0, false
 	}

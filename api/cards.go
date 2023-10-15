@@ -89,7 +89,7 @@ func AddTag(c *fiber.Ctx) error {
 	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"status": "ok",
 	})
 }
 
@@ -216,7 +216,7 @@ func MoveCard(c *fiber.Ctx) error {
 	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"status": "ok",
 	})
 }
 
@@ -253,6 +253,6 @@ func DeleteCard(c *fiber.Ctx) error {
 	tx.Commit()
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "ok",
+		"status": "ok",
 	})
 }

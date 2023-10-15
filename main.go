@@ -95,7 +95,7 @@ func main() {
 	boardsGroup.Get("/:board_id/invite", api.InviteBoard)
 	boardsGroup.Get("/:board_id/leave", api.LeaveBoard)
 	boardsGroup.Post("/", api.CreateBoard)
-	boardsGroup.Put("/", api.UpdateBoard)
+	boardsGroup.Put("/:board_id", api.UpdateBoard)
 	boardsGroup.Delete("/:board_id", api.DeleteBoard)
 
 	// /api/columns
