@@ -39,7 +39,7 @@ func main() {
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "https://localhost:5173", // TODO
-		AllowHeaders:     "Origin, Content-Type, Accept, X-CSRF-Token",
+		AllowHeaders:     "Origin, Content-Type, Accept, X-CSRF-Token, Authorization",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE",
 		AllowCredentials: true,
 	}))
