@@ -35,6 +35,7 @@ func CreateBoard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	board, ok := schema.GetCreateBoardInput(c)
 	if !ok {
@@ -65,6 +66,7 @@ func UpdateBoard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	boardId, ok := getParamInt(c, "board_id")
 	if !ok {
@@ -94,6 +96,7 @@ func DeleteBoard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	boardId, ok := getParamInt(c, "board_id")
 	if !ok {
@@ -132,6 +135,7 @@ func InviteBoard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	boardId, ok := getParamInt(c, "board_id")
 	if !ok {
@@ -171,6 +175,7 @@ func LeaveBoard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	boardId, ok := getParamInt(c, "board_id")
 	if !ok {

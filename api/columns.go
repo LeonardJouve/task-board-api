@@ -53,6 +53,7 @@ func CreateColumn(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	column, ok := schema.GetCreateColumnInput(c)
 	if !ok {
@@ -88,6 +89,7 @@ func UpdateColumn(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	columnId, ok := getParamInt(c, "column_id")
 	if !ok {
@@ -117,6 +119,7 @@ func MoveColumn(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	columnId, ok := getParamInt(c, "column_id")
 	if !ok {
@@ -169,6 +172,7 @@ func DeleteColumn(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	columnId, ok := getParamInt(c, "column_id")
 	if !ok {

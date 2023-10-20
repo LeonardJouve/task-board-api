@@ -31,7 +31,6 @@ func BeginTransaction(c *fiber.Ctx) (*gorm.DB, bool) {
 
 func Execute(c *fiber.Ctx, tx *gorm.DB, err error) bool {
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		tx.Rollback()
 		c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"message": err.Error(),
 		})
@@ -39,6 +38,14 @@ func Execute(c *fiber.Ctx, tx *gorm.DB, err error) bool {
 	}
 
 	return true
+}
+
+func RollbackTransactionIfNeeded(c *fiber.Ctx, tx *gorm.DB) {
+	if c.Response().StatusCode() < 400 {
+		return
+	}
+
+	tx.Rollback()
 }
 
 func New() error {

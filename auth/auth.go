@@ -84,6 +84,7 @@ func Register(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	user, ok := schema.GetRegisterUserInput(c)
 	if !ok {

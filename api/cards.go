@@ -53,6 +53,7 @@ func AddTag(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	cardId, ok := getParamInt(c, "card_id")
 	if !ok {
@@ -96,6 +97,7 @@ func CreateCard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	card, ok := schema.GetCreateCardInput(c)
 	if !ok {
@@ -130,6 +132,7 @@ func UpdateCard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	cardId, ok := getParamInt(c, "card_id")
 	if !ok {
@@ -159,6 +162,7 @@ func MoveCard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	cardId, ok := getParamInt(c, "card_id")
 	if !ok {
@@ -239,6 +243,7 @@ func DeleteCard(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	cardId, ok := getParamInt(c, "card_id")
 	if !ok {

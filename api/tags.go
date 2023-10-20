@@ -53,6 +53,7 @@ func CreateTag(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	tag, ok := schema.GetCreateTagInput(c)
 	if !ok {
@@ -77,6 +78,7 @@ func UpdateTag(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	tagId, ok := getParamInt(c, "tag_id")
 	if !ok {
@@ -106,6 +108,7 @@ func DeleteTag(c *fiber.Ctx) error {
 	if !ok {
 		return nil
 	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
 
 	tagId, ok := getParamInt(c, "tag_id")
 	if !ok {

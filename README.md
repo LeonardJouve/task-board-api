@@ -12,7 +12,6 @@ Fill `.env`
 
 ## TODO
 - sort is not working with multiple boards
-- rollback transactions
 - intl error messages
 - websocket / webserver Allowed Origins
 - Cookies configuration
