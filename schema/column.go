@@ -2,16 +2,17 @@ package schema
 
 import (
 	"github.com/LeonardJouve/task-board-api/models"
+	"github.com/LeonardJouve/task-board-api/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-type UpsertColumnInput struct {
+type CreateColumnInput struct {
 	Name    string `json:"name" validate:"required"`
 	BoardID uint   `json:"boardId" validate:"required"`
 }
 
-func GetUpsertColumnInput(c *fiber.Ctx) (models.Column, bool) {
-	var input UpsertColumnInput
+func GetCreateColumnInput(c *fiber.Ctx) (models.Column, bool) {
+	var input CreateColumnInput
 	if err := c.BodyParser(&input); err != nil {
 		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"message": err.Error(),
@@ -29,4 +30,45 @@ func GetUpsertColumnInput(c *fiber.Ctx) (models.Column, bool) {
 		Name:    input.Name,
 		BoardID: input.BoardID,
 	}, true
+}
+
+type UpdateColumnInput struct {
+	Name string `json:"name"`
+}
+
+func GetUpdateColumnInput(c *fiber.Ctx, columnId uint) (models.Column, bool) {
+	var input UpdateColumnInput
+	if err := c.BodyParser(&input); err != nil {
+		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+		return models.Column{}, false
+	}
+	if err := validate.Struct(input); err != nil {
+		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+		return models.Column{}, false
+	}
+
+	var column models.Column
+	if err := store.Database.Model(&models.Column{}).Where("id = ?", columnId).First(&column).Error; err != nil {
+		c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"message": err.Error(),
+		})
+		return models.Column{}, false
+	}
+
+	if column.ID == 0 {
+		c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"message": "not found",
+		})
+		return models.Column{}, false
+	}
+
+	if len(input.Name) != 0 {
+		column.Name = input.Name
+	}
+
+	return column, true
 }

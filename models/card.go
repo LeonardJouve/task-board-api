@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/LeonardJouve/task-board-api/store"
 	"gorm.io/gorm"
 )
 
@@ -25,6 +26,8 @@ type SanitizedCard struct {
 }
 
 func SanitizeCard(card *Card) *SanitizedCard {
+	store.Database.Model(&card).Preload("Tags").Find(&card)
+
 	tagIds := []uint{}
 	for _, tag := range card.Tags {
 		tagIds = append(tagIds, tag.ID)

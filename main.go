@@ -8,6 +8,7 @@ import (
 	"github.com/LeonardJouve/task-board-api/api"
 	"github.com/LeonardJouve/task-board-api/auth"
 	"github.com/LeonardJouve/task-board-api/dotenv"
+	"github.com/LeonardJouve/task-board-api/models"
 	"github.com/LeonardJouve/task-board-api/schema"
 	"github.com/LeonardJouve/task-board-api/static"
 	"github.com/LeonardJouve/task-board-api/store"
@@ -30,6 +31,10 @@ func main() {
 	}
 
 	if err := store.New(); err != nil {
+		panic(err.Error())
+	}
+
+	if err := models.AutoMigrate(); err != nil {
 		panic(err.Error())
 	}
 
@@ -103,8 +108,8 @@ func main() {
 	columnsGroup.Get("/", api.GetColumns)
 	columnsGroup.Get("/:column_id", api.GetColumn)
 	columnsGroup.Post("/", api.CreateColumn)
-	columnsGroup.Put("/", api.UpdateColumn)
-	columnsGroup.Patch("/:column_id", api.MoveColumn)
+	columnsGroup.Put("/:column_id", api.UpdateColumn)
+	columnsGroup.Patch("/:column_id/move", api.MoveColumn)
 	columnsGroup.Delete("/:column_id", api.DeleteColumn)
 
 	// /api/cards
@@ -113,8 +118,8 @@ func main() {
 	cardsGroup.Get("/:card_id", api.GetCard)
 	cardsGroup.Get("/:card_id/tag", api.AddTag)
 	cardsGroup.Post("/", api.CreateCard)
-	cardsGroup.Put("/", api.UpdateCard)
-	cardsGroup.Patch("/:card_id", api.MoveCard)
+	cardsGroup.Put("/:card_id", api.UpdateCard)
+	cardsGroup.Patch("/:card_id/move", api.MoveCard)
 	cardsGroup.Delete("/:card_id", api.DeleteCard)
 
 	// /api/tags
@@ -122,7 +127,7 @@ func main() {
 	tagsGroup.Get("/", api.GetTags)
 	tagsGroup.Get("/:tag_id", api.GetTag)
 	tagsGroup.Post("/", api.CreateTag)
-	tagsGroup.Put("/", api.UpdateTag)
+	tagsGroup.Put("/:tag_id", api.UpdateTag)
 	tagsGroup.Delete("/:tag_id", api.DeleteTag)
 
 	// /api/users

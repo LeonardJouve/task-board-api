@@ -54,7 +54,7 @@ func CreateColumn(c *fiber.Ctx) error {
 		return nil
 	}
 
-	column, ok := schema.GetUpsertColumnInput(c)
+	column, ok := schema.GetCreateColumnInput(c)
 	if !ok {
 		return nil
 	}
@@ -69,7 +69,7 @@ func CreateColumn(c *fiber.Ctx) error {
 
 	var previous models.Column
 	// TODO: Error with this query on first column creation
-	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND board_id = ? AND id != ?", column.BoardID, column.ID).First(&previous).Error); !ok {
+	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND board_id = ?", column.BoardID).First(&previous).Error); !ok {
 		return nil
 	}
 	if previous.ID != 0 {
@@ -89,7 +89,12 @@ func UpdateColumn(c *fiber.Ctx) error {
 		return nil
 	}
 
-	column, ok := schema.GetUpsertColumnInput(c)
+	columnId, ok := getParamInt(c, "column_id")
+	if !ok {
+		return nil
+	}
+
+	column, ok := schema.GetUpdateColumnInput(c, uint(columnId))
 	if !ok {
 		return nil
 	}
@@ -156,9 +161,7 @@ func MoveColumn(c *fiber.Ctx) error {
 
 	tx.Commit()
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status": "ok",
-	})
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeColumn(&column))
 }
 
 func DeleteColumn(c *fiber.Ctx) error {

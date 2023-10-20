@@ -54,7 +54,7 @@ func CreateTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	tag, ok := schema.GetUpsertTagInput(c)
+	tag, ok := schema.GetCreateTagInput(c)
 	if !ok {
 		return nil
 	}
@@ -78,7 +78,12 @@ func UpdateTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	tag, ok := schema.GetUpsertTagInput(c)
+	tagId, ok := getParamInt(c, "tag_id")
+	if !ok {
+		return nil
+	}
+
+	tag, ok := schema.GetUpdateTagInput(c, uint(tagId))
 	if !ok {
 		return nil
 	}
