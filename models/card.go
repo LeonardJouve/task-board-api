@@ -54,26 +54,31 @@ func SanitizeCards(cards *[]Card) *[]SanitizedCard {
 
 func SortCards(cards *[]Card) *[]Card {
 	var sortedCards []Card
-	var card Card
+	lastCards := make(map[uint]Card)
+	cardsMap := make(map[uint]map[uint]Card)
 	var ok bool
-	cardMap := make(map[uint]Card, len(*cards))
 	for _, c := range *cards {
 		if c.NextID == nil {
-			card = c
+			lastCards[c.ColumnID] = c
 			continue
 		}
-		cardMap[*c.NextID] = c
+		if len(cardsMap[c.ColumnID]) == 0 {
+			cardsMap[c.ColumnID] = make(map[uint]Card)
+		}
+		cardsMap[c.ColumnID][*c.NextID] = c
 	}
 
-	if card.ID == 0 {
+	if len(lastCards) == 0 {
 		return &[]Card{}
 	}
 
-	for {
-		sortedCards = append([]Card{card}, sortedCards...)
-		card, ok = cardMap[card.ID]
-		if !ok {
-			break
+	for columnId, card := range lastCards {
+		for {
+			sortedCards = append([]Card{card}, sortedCards...)
+			card, ok = cardsMap[columnId][card.ID]
+			if !ok {
+				break
+			}
 		}
 	}
 

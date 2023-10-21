@@ -37,26 +37,31 @@ func SanitizeColumns(columns *[]Column) *[]SanitizedColumn {
 
 func SortColumns(columns *[]Column) *[]Column {
 	var sortedColumns []Column
-	var column Column
+	lastColumns := make(map[uint]Column)
+	columnsMap := make(map[uint]map[uint]Column)
 	var ok bool
-	columnMap := make(map[uint]Column, len(*columns))
 	for _, c := range *columns {
 		if c.NextID == nil {
-			column = c
+			lastColumns[c.BoardID] = c
 			continue
 		}
-		columnMap[*c.NextID] = c
+		if len(columnsMap[c.BoardID]) == 0 {
+			columnsMap[c.BoardID] = make(map[uint]Column)
+		}
+		columnsMap[c.BoardID][*c.NextID] = c
 	}
 
-	if column.ID == 0 {
+	if len(lastColumns) == 0 {
 		return &[]Column{}
 	}
 
-	for {
-		sortedColumns = append([]Column{column}, sortedColumns...)
-		column, ok = columnMap[column.ID]
-		if !ok {
-			break
+	for boardId, column := range lastColumns {
+		for {
+			sortedColumns = append([]Column{column}, sortedColumns...)
+			column, ok = columnsMap[boardId][column.ID]
+			if !ok {
+				break
+			}
 		}
 	}
 
