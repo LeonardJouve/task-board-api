@@ -15,13 +15,14 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/boards",
+							"raw": "{{host}}/api/boards/",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
 								"api",
-								"boards"
+								"boards",
+								""
 							]
 						}
 					},
@@ -58,6 +59,11 @@
 									"key": "name",
 									"value": "board",
 									"type": "text"
+								},
+								{
+									"key": "description",
+									"value": "description",
+									"type": "text"
 								}
 							]
 						},
@@ -88,46 +94,21 @@
 									"type": "text"
 								},
 								{
-									"key": "id",
-									"value": "1",
+									"key": "description",
+									"value": "test",
 									"type": "text"
 								}
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/boards",
-							"host": [
-								"{{host}}"
-							],
-							"path": [
-								"api",
-								"boards"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "PATCH",
-					"request": {
-						"method": "PATCH",
-						"header": [],
-						"url": {
-							"raw": "{{host}}/api/boards/move/2?nextId=1",
+							"raw": "{{host}}/api/boards/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
 								"api",
 								"boards",
-								"move",
-								"2"
-							],
-							"query": [
-								{
-									"key": "nextId",
-									"value": "1"
-								}
+								"1"
 							]
 						}
 					},
@@ -158,7 +139,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/boards/1/invite?userId=2",
+							"raw": "{{host}}/api/boards/1/invite?userId=1",
 							"host": [
 								"{{host}}"
 							],
@@ -171,7 +152,7 @@
 							"query": [
 								{
 									"key": "userId",
-									"value": "2"
+									"value": "1"
 								}
 							]
 						}
@@ -311,27 +292,18 @@
 									"key": "name",
 									"value": "column",
 									"type": "text"
-								},
-								{
-									"key": "id",
-									"value": "1",
-									"type": "text"
-								},
-								{
-									"key": "boardId",
-									"value": "1",
-									"type": "text"
 								}
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/columns",
+							"raw": "{{host}}/api/columns/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
 								"api",
-								"columns"
+								"columns",
+								"1"
 							]
 						}
 					},
@@ -343,15 +315,16 @@
 						"method": "PATCH",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/columns/move/2?nextId=1",
+							"raw": "{{host}}/api/columns/2/move/?nextId=1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
 								"api",
 								"columns",
+								"2",
 								"move",
-								"2"
+								""
 							],
 							"query": [
 								{
@@ -407,6 +380,32 @@
 								"api",
 								"cards",
 								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "TAG",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/cards/1/tag?tagId=1",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"cards",
+								"1",
+								"tag"
+							],
+							"query": [
+								{
+									"key": "tagId",
+									"value": "1"
+								}
 							]
 						}
 					},
@@ -486,27 +485,18 @@
 									"key": "content",
 									"value": "content",
 									"type": "text"
-								},
-								{
-									"key": "id",
-									"value": "1",
-									"type": "text"
-								},
-								{
-									"key": "columnId",
-									"value": "1",
-									"type": "text"
 								}
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/cards",
+							"raw": "{{host}}/api/cards/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
 								"api",
-								"cards"
+								"cards",
+								"1"
 							]
 						}
 					},
@@ -518,33 +508,7 @@
 						"method": "PATCH",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/move/2?nextId=1",
-							"host": [
-								"{{host}}"
-							],
-							"path": [
-								"api",
-								"cards",
-								"move",
-								"2"
-							],
-							"query": [
-								{
-									"key": "nextId",
-									"value": "1"
-								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "TAG",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{host}}/api/cards/1/tag?tagId=1",
+							"raw": "{{host}}/api/cards/1/move?columnId=1&nextId=null",
 							"host": [
 								"{{host}}"
 							],
@@ -552,12 +516,16 @@
 								"api",
 								"cards",
 								"1",
-								"tag"
+								"move"
 							],
 							"query": [
 								{
-									"key": "tagId",
+									"key": "columnId",
 									"value": "1"
+								},
+								{
+									"key": "nextId",
+									"value": "null"
 								}
 							]
 						}
@@ -679,18 +647,13 @@
 							"mode": "formdata",
 							"formdata": [
 								{
-									"key": "boardId",
-									"value": "1",
-									"type": "text"
-								},
-								{
 									"key": "name",
 									"value": "tag",
 									"type": "text"
 								},
 								{
 									"key": "color",
-									"value": "#FFFFFF",
+									"value": "#000000",
 									"type": "text"
 								}
 							]

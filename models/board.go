@@ -7,17 +7,19 @@ import (
 
 type Board struct {
 	gorm.Model
-	Name    string
-	OwnerID uint
-	Owner   User   `gorm:"foreignKey:OwnerID"`
-	Users   []User `gorm:"many2many:user_boards"`
+	OwnerID     uint
+	Owner       User   `gorm:"foreignKey:OwnerID"`
+	Users       []User `gorm:"many2many:user_boards"`
+	Name        string
+	Description string
 }
 
 type SanitizedBoard struct {
-	ID      uint   `json:"id"`
-	OwnerID uint   `json:"ownerId"`
-	Name    string `json:"name"`
-	UserIds []uint `json:"userIds"`
+	ID          uint   `json:"id"`
+	OwnerID     uint   `json:"ownerId"`
+	UserIds     []uint `json:"userIds"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func SanitizeBoard(board *Board) *SanitizedBoard {
@@ -29,10 +31,11 @@ func SanitizeBoard(board *Board) *SanitizedBoard {
 	}
 
 	return &SanitizedBoard{
-		ID:      board.ID,
-		OwnerID: board.OwnerID,
-		Name:    board.Name,
-		UserIds: userIds,
+		ID:          board.ID,
+		OwnerID:     board.OwnerID,
+		UserIds:     userIds,
+		Name:        board.Name,
+		Description: board.Description,
 	}
 }
 

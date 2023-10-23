@@ -7,7 +7,8 @@ import (
 )
 
 type CreateBoardInput struct {
-	Name string `json:"name" validate:"required"`
+	Name        string `json:"name" validate:"required"`
+	Description string `json:"description" validate:"required"`
 }
 
 func GetCreateBoardInput(c *fiber.Ctx) (models.Board, bool) {
@@ -26,12 +27,14 @@ func GetCreateBoardInput(c *fiber.Ctx) (models.Board, bool) {
 	}
 
 	return models.Board{
-		Name: input.Name,
+		Name:        input.Name,
+		Description: input.Description,
 	}, true
 }
 
 type UpdateBoardInput struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func GetUpdateBoardInput(c *fiber.Ctx, boardId uint) (models.Board, bool) {
@@ -66,6 +69,10 @@ func GetUpdateBoardInput(c *fiber.Ctx, boardId uint) (models.Board, bool) {
 
 	if len(input.Name) != 0 {
 		board.Name = input.Name
+	}
+
+	if len(input.Description) != 0 {
+		board.Description = input.Description
 	}
 
 	return board, true
