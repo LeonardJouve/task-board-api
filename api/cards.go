@@ -113,7 +113,7 @@ func CreateCard(c *fiber.Ctx) error {
 	}
 
 	var previous models.Card
-	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND column_id = ?", card.ColumnID).First(&previous).Error); !ok {
+	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND column_id = ? AND id != ?", card.ColumnID, card.ID).First(&previous).Error); !ok {
 		return nil
 	}
 	if previous.ID != 0 {

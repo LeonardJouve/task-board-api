@@ -70,7 +70,7 @@ func CreateColumn(c *fiber.Ctx) error {
 
 	var previous models.Column
 	// TODO: Error with this query on first column creation
-	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND board_id = ?", column.BoardID).First(&previous).Error); !ok {
+	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND board_id = ? AND id != ?", column.BoardID, column.ID).First(&previous).Error); !ok {
 		return nil
 	}
 	if previous.ID != 0 {
