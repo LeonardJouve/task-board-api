@@ -43,7 +43,7 @@ func (column *Column) AfterCreate(tx *gorm.DB) (err error) {
 }
 
 func (card *Card) AfterCreate(tx *gorm.DB) (err error) {
-	tx.Model(card).Preload("Column").First(card)
+	tx.Model(card).Preload("Column").First(&card)
 
 	HookChannel <- HookMessage{
 		BoardId: card.Column.BoardID,
@@ -93,7 +93,7 @@ func (column *Column) AfterUpdate(tx *gorm.DB) (err error) {
 }
 
 func (card *Card) AfterUpdate(tx *gorm.DB) (err error) {
-	tx.Model(card).Preload("Column").First(card)
+	tx.Model(card).Preload("Column").First(&card)
 
 	HookChannel <- HookMessage{
 		BoardId: card.Column.BoardID,
@@ -143,7 +143,7 @@ func (column *Column) AfterDelete(tx *gorm.DB) (err error) {
 }
 
 func (card *Card) AfterDelete(tx *gorm.DB) (err error) {
-	tx.Model(card).Preload("Column").First(card)
+	tx.Model(card).Preload("Column").First(&card)
 
 	HookChannel <- HookMessage{
 		BoardId: card.Column.BoardID,

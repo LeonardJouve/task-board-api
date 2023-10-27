@@ -10,8 +10,9 @@ type Card struct {
 	ColumnID uint
 	Column   Column `gorm:"constraint:OnDelete:CASCADE"`
 	NextID   *uint
-	Next     *Card `gorm:"foreignKey:NextID"`
-	Tags     []Tag `gorm:"many2many:card_tags;constraint:OnDelete:CASCADE"`
+	Next     *Card  `gorm:"foreignKey:NextID"`
+	Users    []User `gorm:"many2many:card_users;constraint:OnDelete:CASCADE"`
+	Tags     []Tag  `gorm:"many2many:card_tags;constraint:OnDelete:CASCADE"`
 	Name     string
 	Content  string
 }
@@ -20,23 +21,30 @@ type SanitizedCard struct {
 	ID       uint   `json:"id"`
 	ColumnID uint   `json:"columnId"`
 	NextID   *uint  `json:"nextId"`
+	UserIDs  []uint `json:"userIds"`
 	TagIDs   []uint `json:"tagIds"`
 	Name     string `json:"name"`
 	Content  string `json:"content"`
 }
 
 func SanitizeCard(card *Card) *SanitizedCard {
-	store.Database.Model(&card).Preload("Tags").Find(&card)
+	store.Database.Model(&card).Preload("Tags").Preload("Users").Find(&card)
 
 	tagIds := []uint{}
 	for _, tag := range card.Tags {
 		tagIds = append(tagIds, tag.ID)
 	}
 
+	userIds := []uint{}
+	for _, user := range card.Users {
+		userIds = append(userIds, user.ID)
+	}
+
 	return &SanitizedCard{
 		ID:       card.ID,
 		ColumnID: card.ColumnID,
 		NextID:   card.NextID,
+		UserIDs:  userIds,
 		TagIDs:   tagIds,
 		Name:     card.Name,
 		Content:  card.Content,

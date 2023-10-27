@@ -9,7 +9,7 @@ type Board struct {
 	gorm.Model
 	OwnerID     uint
 	Owner       User   `gorm:"foreignKey:OwnerID"`
-	Users       []User `gorm:"many2many:user_boards"`
+	Users       []User `gorm:"many2many:user_boards;constraint:OnDelete:CASCADE"`
 	Name        string
 	Description string
 }

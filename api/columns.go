@@ -64,17 +64,17 @@ func CreateColumn(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Create(&column).Error); !ok {
+	if ok := store.Execute(c, tx.Create(&column).Error); !ok {
 		return nil
 	}
 
 	var previous models.Column
 	// TODO: Error with this query on first column creation
-	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND board_id = ? AND id != ?", column.BoardID, column.ID).First(&previous).Error); !ok {
+	if ok := store.Execute(c, tx.Where("next_id IS NULL AND board_id = ? AND id != ?", column.BoardID, column.ID).First(&previous).Error); !ok {
 		return nil
 	}
 	if previous.ID != 0 {
-		if ok := store.Execute(c, tx, tx.Model(&previous).Update("next_id", &column.ID).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&previous).Update("next_id", &column.ID).Error); !ok {
 			return nil
 		}
 	}
@@ -105,7 +105,7 @@ func UpdateColumn(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&column).Omit("NextID", "BoardID").Updates(&column).Error); !ok {
+	if ok := store.Execute(c, tx.Model(&column).Omit("NextID", "BoardID").Updates(&column).Error); !ok {
 		return nil
 	}
 
@@ -133,14 +133,14 @@ func MoveColumn(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&models.Column{}).Where("next_id = ?", column.ID).Update("next_id", column.NextID).Error); !ok {
+	if ok := store.Execute(c, tx.Model(&models.Column{}).Where("next_id = ?", column.ID).Update("next_id", column.NextID).Error); !ok {
 		return nil
 	}
 	if nextId == 0 {
-		if ok := store.Execute(c, tx, tx.Model(&models.Column{}).Where("next_id IS NULL AND board_id = ?", column.BoardID).Update("next_id", &column.ID).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&models.Column{}).Where("next_id IS NULL AND board_id = ?", column.BoardID).Update("next_id", &column.ID).Error); !ok {
 			return nil
 		}
-		if ok := store.Execute(c, tx, tx.Model(&column).Update("next_id", nil).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&column).Update("next_id", nil).Error); !ok {
 			return nil
 		}
 	} else {
@@ -154,10 +154,10 @@ func MoveColumn(c *fiber.Ctx) error {
 			})
 		}
 
-		if ok := store.Execute(c, tx, tx.Model(&models.Column{}).Where("next_id = ?", nextId).Update("next_id", &column.ID).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&models.Column{}).Where("next_id = ?", nextId).Update("next_id", &column.ID).Error); !ok {
 			return nil
 		}
-		if ok := store.Execute(c, tx, tx.Model(&column).Update("next_id", nextId).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&column).Update("next_id", nextId).Error); !ok {
 			return nil
 		}
 	}
@@ -185,16 +185,16 @@ func DeleteColumn(c *fiber.Ctx) error {
 	}
 
 	var previous models.Column
-	if ok := store.Execute(c, tx, tx.Where("next_id = ?", columnId).First(&previous).Error); !ok {
+	if ok := store.Execute(c, tx.Where("next_id = ?", columnId).First(&previous).Error); !ok {
 		return nil
 	}
 	if previous.ID != 0 {
-		if ok := store.Execute(c, tx, tx.Where(&previous).Update("next_id", column.NextID).Error); !ok {
+		if ok := store.Execute(c, tx.Where(&previous).Update("next_id", column.NextID).Error); !ok {
 			return nil
 		}
 	}
 
-	if ok := store.Execute(c, tx, tx.Unscoped().Delete(&column).Error); !ok {
+	if ok := store.Execute(c, tx.Unscoped().Delete(&column).Error); !ok {
 		return nil
 	}
 

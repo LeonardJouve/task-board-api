@@ -48,7 +48,7 @@ func GetCard(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(models.SanitizeCard(&card))
 }
 
-func AddTag(c *fiber.Ctx) error {
+func JoinCard(c *fiber.Ctx) error {
 	tx, ok := store.BeginTransaction(c)
 	if !ok {
 		return nil
@@ -60,7 +60,72 @@ func AddTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	tagId := c.QueryInt("tagId")
+	user, ok := getUser(c)
+	if !ok {
+		return nil
+	}
+
+	card, ok := getUserCard(c, uint(cardId))
+	if !ok {
+		return nil
+	}
+
+	if ok := store.Execute(c, tx.Model(&user).Association("Cards").Append(&card)); !ok {
+		return nil
+	}
+
+	tx.Commit()
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeCard(&card))
+}
+
+func LeaveCard(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
+
+	cardId, ok := getParamInt(c, "card_id")
+	if !ok {
+		return nil
+	}
+
+	user, ok := getUser(c)
+	if !ok {
+		return nil
+	}
+
+	card, ok := getUserCard(c, uint(cardId))
+	if !ok {
+		return nil
+	}
+
+	if ok := store.Execute(c, tx.Model(&user).Association("Cards").Delete(&card)); !ok {
+		return nil
+	}
+
+	tx.Commit()
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeCard(&card))
+}
+
+func AddCardTag(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
+
+	cardId, ok := getParamInt(c, "card_id")
+	if !ok {
+		return nil
+	}
+
+	tagId, ok := getParamInt(c, "tag_id")
+	if !ok {
+		return nil
+	}
 
 	card, ok := getUserCard(c, uint(cardId))
 	if !ok {
@@ -83,7 +148,43 @@ func AddTag(c *fiber.Ctx) error {
 		})
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&card).Association("Tags").Append([]models.Tag{tag})); !ok {
+	if ok := store.Execute(c, tx.Model(&tag).Association("Cards").Append(&card)); !ok {
+		return nil
+	}
+
+	tx.Commit()
+
+	return c.Status(fiber.StatusOK).JSON(models.SanitizeCard(&card))
+}
+
+func RemoveCardTag(c *fiber.Ctx) error {
+	tx, ok := store.BeginTransaction(c)
+	if !ok {
+		return nil
+	}
+	defer store.RollbackTransactionIfNeeded(c, tx)
+
+	cardId, ok := getParamInt(c, "card_id")
+	if !ok {
+		return nil
+	}
+
+	tagId, ok := getParamInt(c, "tag_id")
+	if !ok {
+		return nil
+	}
+
+	card, ok := getUserCard(c, uint(cardId))
+	if !ok {
+		return nil
+	}
+
+	tag, ok := getUserTag(c, uint(tagId))
+	if !ok {
+		return nil
+	}
+
+	if ok := store.Execute(c, tx.Model(&tag).Association("Cards").Delete(&card)); !ok {
 		return nil
 	}
 
@@ -108,16 +209,16 @@ func CreateCard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Create(&card).Error); !ok {
+	if ok := store.Execute(c, tx.Create(&card).Error); !ok {
 		return nil
 	}
 
 	var previous models.Card
-	if ok := store.Execute(c, tx, tx.Where("next_id IS NULL AND column_id = ? AND id != ?", card.ColumnID, card.ID).First(&previous).Error); !ok {
+	if ok := store.Execute(c, tx.Where("next_id IS NULL AND column_id = ? AND id != ?", card.ColumnID, card.ID).First(&previous).Error); !ok {
 		return nil
 	}
 	if previous.ID != 0 {
-		if ok := store.Execute(c, tx, tx.Model(&previous).Update("next_id", &card.ID).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&previous).Update("next_id", &card.ID).Error); !ok {
 			return nil
 		}
 	}
@@ -148,7 +249,7 @@ func UpdateCard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID", "ColumnID").Preload("Tags").Updates(&card).Error); !ok {
+	if ok := store.Execute(c, tx.Model(&models.Card{}).Where("id = ?", card.ID).Omit("NextID", "ColumnID").Preload("Tags").Updates(&card).Error); !ok {
 		return nil
 	}
 
@@ -181,7 +282,7 @@ func MoveCard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&card).Preload("Column").Find(&card).Error); !ok {
+	if ok := store.Execute(c, tx.Model(&card).Preload("Column").Find(&card).Error); !ok {
 		return nil
 	}
 
@@ -191,14 +292,14 @@ func MoveCard(c *fiber.Ctx) error {
 		})
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID).Error); !ok {
+	if ok := store.Execute(c, tx.Model(&models.Card{}).Where("next_id = ?", card.ID).Update("next_id", card.NextID).Error); !ok {
 		return nil
 	}
 	if nextId == 0 {
-		if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("next_id IS NULL AND column_id = ?", column.ID).Update("next_id", &card.ID).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&models.Card{}).Where("next_id IS NULL AND column_id = ?", column.ID).Update("next_id", &card.ID).Error); !ok {
 			return nil
 		}
-		if ok := store.Execute(c, tx, tx.Model(&card).Updates(map[string]interface{}{
+		if ok := store.Execute(c, tx.Model(&card).Updates(map[string]interface{}{
 			"next_id":   nil,
 			"column_id": column.ID,
 		}).Error); !ok {
@@ -222,10 +323,10 @@ func MoveCard(c *fiber.Ctx) error {
 			})
 		}
 
-		if ok := store.Execute(c, tx, tx.Model(&models.Card{}).Where("next_id = ?", next.ID).Update("next_id", &card.ID).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&models.Card{}).Where("next_id = ?", next.ID).Update("next_id", &card.ID).Error); !ok {
 			return nil
 		}
-		if ok := store.Execute(c, tx, tx.Model(&card).Updates(&models.Card{
+		if ok := store.Execute(c, tx.Model(&card).Updates(&models.Card{
 			NextID:   &next.ID,
 			ColumnID: column.ID,
 		}).Error); !ok {
@@ -256,16 +357,16 @@ func DeleteCard(c *fiber.Ctx) error {
 	}
 
 	var previous models.Card
-	if ok := store.Execute(c, tx, tx.Where("next_id = ?", cardId).First(&previous).Error); !ok {
+	if ok := store.Execute(c, tx.Where("next_id = ?", cardId).First(&previous).Error); !ok {
 		return nil
 	}
 	if previous.ID != 0 {
-		if ok := store.Execute(c, tx, tx.Model(&previous).Update("next_id", card.NextID).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&previous).Update("next_id", card.NextID).Error); !ok {
 			return nil
 		}
 	}
 
-	if ok := store.Execute(c, tx, tx.Unscoped().Delete(&card).Error); !ok {
+	if ok := store.Execute(c, tx.Unscoped().Delete(&card).Error); !ok {
 		return nil
 	}
 

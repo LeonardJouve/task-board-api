@@ -386,12 +386,12 @@
 					"response": []
 				},
 				{
-					"name": "TAG",
+					"name": "JOIN",
 					"request": {
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/1/tag?tagId=1",
+							"raw": "{{host}}/api/cards/1/join",
 							"host": [
 								"{{host}}"
 							],
@@ -399,13 +399,71 @@
 								"api",
 								"cards",
 								"1",
-								"tag"
+								"join"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "LEAVE",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/cards/1/leave",
+							"host": [
+								"{{host}}"
 							],
-							"query": [
-								{
-									"key": "tagId",
-									"value": "1"
-								}
+							"path": [
+								"api",
+								"cards",
+								"1",
+								"leave"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "ADD TAG",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/cards/1/tag/1/add",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"cards",
+								"1",
+								"tag",
+								"1",
+								"add"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "REMOVE TAG",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{host}}/api/cards/1/tag/1/remove",
+							"host": [
+								"{{host}}"
+							],
+							"path": [
+								"api",
+								"cards",
+								"1",
+								"tag",
+								"1",
+								"remove"
 							]
 						}
 					},

@@ -30,11 +30,17 @@ func main() {
 		defer oldEnv.Restore()
 	}
 
-	if err := store.New(); err != nil {
+	if err := store.Init(); err != nil {
 		panic(err.Error())
 	}
 
-	if err := models.AutoMigrate(); err != nil {
+	if err := store.Database.AutoMigrate(
+		&models.User{},
+		&models.Board{},
+		&models.Column{},
+		&models.Card{},
+		&models.Tag{},
+	); err != nil {
 		panic(err.Error())
 	}
 
@@ -116,7 +122,10 @@ func main() {
 	cardsGroup := apiGroup.Group("/cards")
 	cardsGroup.Get("/", api.GetCards)
 	cardsGroup.Get("/:card_id", api.GetCard)
-	cardsGroup.Get("/:card_id/tag", api.AddTag)
+	cardsGroup.Get("/:card_id/join", api.JoinCard)
+	cardsGroup.Get("/:card_id/leave", api.LeaveCard)
+	cardsGroup.Get("/:card_id/tag/:tag_id/add", api.AddCardTag)
+	cardsGroup.Get("/:card_id/tag/:tag_id/remove", api.RemoveCardTag)
 	cardsGroup.Post("/", api.CreateCard)
 	cardsGroup.Put("/:card_id", api.UpdateCard)
 	cardsGroup.Patch("/:card_id/move", api.MoveCard)

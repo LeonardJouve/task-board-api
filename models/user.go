@@ -9,6 +9,7 @@ import (
 type User struct {
 	gorm.Model
 	Boards              []Board `gorm:"many2many:user_boards;constraint:OnDelete:CASCADE"`
+	Cards               []Card  `gorm:"many2many:card_users;constraint:OnDelete:CASCADE"`
 	Name                string
 	Email               string `gorm:"unique"`
 	Username            string

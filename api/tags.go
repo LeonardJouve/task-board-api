@@ -64,7 +64,7 @@ func CreateTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Create(&tag).Error); !ok {
+	if ok := store.Execute(c, tx.Create(&tag).Error); !ok {
 		return nil
 	}
 
@@ -94,7 +94,7 @@ func UpdateTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&models.Tag{}).Where("id = ?", tag.ID).Omit("BoardID").Updates(&tag).Error); !ok {
+	if ok := store.Execute(c, tx.Model(&models.Tag{}).Where("id = ?", tag.ID).Omit("BoardID").Updates(&tag).Error); !ok {
 		return nil
 	}
 
@@ -120,7 +120,7 @@ func DeleteTag(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Unscoped().Delete(&tag).Error); !ok {
+	if ok := store.Execute(c, tx.Unscoped().Delete(&tag).Error); !ok {
 		return nil
 	}
 

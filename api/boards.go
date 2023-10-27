@@ -48,11 +48,11 @@ func CreateBoard(c *fiber.Ctx) error {
 	}
 	board.OwnerID = user.ID
 
-	if ok := store.Execute(c, tx, tx.Create(&board).Error); !ok {
+	if ok := store.Execute(c, tx.Create(&board).Error); !ok {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&user).Association("Boards").Append([]models.Board{board})); !ok {
+	if ok := store.Execute(c, tx.Model(&user).Association("Boards").Append(&board)); !ok {
 		return nil
 	}
 
@@ -82,7 +82,7 @@ func UpdateBoard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&board).Updates(&board).Error); !ok {
+	if ok := store.Execute(c, tx.Model(&board).Updates(&board).Error); !ok {
 		return nil
 	}
 
@@ -119,7 +119,7 @@ func DeleteBoard(c *fiber.Ctx) error {
 		})
 	}
 
-	if ok := store.Execute(c, tx, tx.Unscoped().Delete(&board).Error); !ok {
+	if ok := store.Execute(c, tx.Unscoped().Delete(&board).Error); !ok {
 		return nil
 	}
 
@@ -145,7 +145,7 @@ func InviteBoard(c *fiber.Ctx) error {
 	userId := c.QueryInt("userId")
 
 	var user models.User
-	if ok := store.Execute(c, tx, tx.First(&user, userId).Error); !ok {
+	if ok := store.Execute(c, tx.First(&user, userId).Error); !ok {
 		return nil
 	}
 	if user.ID == 0 {
@@ -159,7 +159,7 @@ func InviteBoard(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&user).Association("Boards").Append([]models.Board{board})); !ok {
+	if ok := store.Execute(c, tx.Model(&user).Association("Boards").Append(&board)); !ok {
 		return nil
 	}
 
@@ -196,7 +196,7 @@ func LeaveBoard(c *fiber.Ctx) error {
 		})
 	}
 
-	if ok := store.Execute(c, tx, tx.Model(&user).Association("Boards").Delete(&board)); !ok {
+	if ok := store.Execute(c, tx.Model(&user).Association("Boards").Delete(&board)); !ok {
 		return nil
 	}
 

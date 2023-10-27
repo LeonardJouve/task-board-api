@@ -91,7 +91,7 @@ func Register(c *fiber.Ctx) error {
 		return nil
 	}
 
-	if ok := store.Execute(c, tx, tx.Create(&user).Error); !ok {
+	if ok := store.Execute(c, tx.Create(&user).Error); !ok {
 		return nil
 	}
 
