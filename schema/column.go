@@ -7,8 +7,8 @@ import (
 )
 
 type CreateColumnInput struct {
-	Name    string `json:"name" validate:"required"`
 	BoardID uint   `json:"boardId" validate:"required"`
+	Name    string `json:"name"`
 }
 
 func GetCreateColumnInput(c *fiber.Ctx) (models.Column, bool) {

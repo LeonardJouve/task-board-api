@@ -7,8 +7,8 @@ import (
 )
 
 type CreateBoardInput struct {
-	Name        string `json:"name" validate:"required"`
-	Description string `json:"description" validate:"required"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func GetCreateBoardInput(c *fiber.Ctx) (models.Board, bool) {

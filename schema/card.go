@@ -8,8 +8,8 @@ import (
 
 type CreateCardInput struct {
 	ColumnID uint   `json:"columnId" validate:"required"`
-	Name     string `json:"name" validate:"required"`
-	Content  string `json:"content" validate:"required"`
+	Name     string `json:"name"`
+	Content  string `json:"content"`
 }
 
 func GetCreateCardInput(c *fiber.Ctx) (models.Card, bool) {

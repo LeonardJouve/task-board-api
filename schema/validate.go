@@ -7,7 +7,7 @@ import (
 )
 
 const EMAIL_REGEX = `^.+@.+\..+$`
-const COLOR_REGEX = `^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$`
+const COLOR_REGEX = `^#([A-Fa-f0-9]{6})$`
 
 var validate *validator.Validate
 

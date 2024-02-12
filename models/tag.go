@@ -8,7 +8,7 @@ type Tag struct {
 	Board   Board  `gorm:"constraint:OnDelete:CASCADE"`
 	Cards   []Card `gorm:"many2many:card_tags;constraint:OnDelete:CASCADE"`
 	Name    string
-	Color   string
+	Color   string `gorm:"default:'#FFFFFF'"`
 }
 
 type SanitizedTag struct {

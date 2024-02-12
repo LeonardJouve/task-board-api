@@ -8,8 +8,8 @@ import (
 
 type CreateTagInput struct {
 	BoardID uint   `json:"boardId" validate:"required"`
-	Name    string `json:"name" validate:"required"`
-	Color   string `json:"color" validate:"required,color"`
+	Name    string `json:"name"`
+	Color   string `json:"color" validate:"omitempty,color"`
 }
 
 func GetCreateTagInput(c *fiber.Ctx) (models.Tag, bool) {
