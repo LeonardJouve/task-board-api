@@ -296,12 +296,20 @@ func MoveCard(c *fiber.Ctx) error {
 		return nil
 	}
 	if nextId == 0 {
+		if column.ID == card.ColumnID && card.NextID == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "invalid column id",
+			})
+		}
+
 		if ok := store.Execute(c, tx.Model(&models.Card{}).Where("next_id IS NULL AND column_id = ?", column.ID).Update("next_id", &card.ID).Error); !ok {
 			return nil
 		}
-		if ok := store.Execute(c, tx.Model(&card).Updates(map[string]interface{}{
-			"next_id":   nil,
-			"column_id": column.ID,
+		if ok := store.Execute(c, tx.Model(&card).Update("next_id", nil).Error); !ok {
+			return nil
+		}
+		if ok := store.Execute(c, tx.Model(&card).Updates(models.Card{
+			ColumnID: column.ID,
 		}).Error); !ok {
 			return nil
 		}
@@ -319,14 +327,14 @@ func MoveCard(c *fiber.Ctx) error {
 
 		if next.ColumnID != column.ID {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "invalid columnId",
+				"message": "invalid column id",
 			})
 		}
 
 		if ok := store.Execute(c, tx.Model(&models.Card{}).Where("next_id = ?", next.ID).Update("next_id", &card.ID).Error); !ok {
 			return nil
 		}
-		if ok := store.Execute(c, tx.Model(&card).Updates(&models.Card{
+		if ok := store.Execute(c, tx.Model(&card).Updates(models.Card{
 			NextID:   &next.ID,
 			ColumnID: column.ID,
 		}).Error); !ok {
