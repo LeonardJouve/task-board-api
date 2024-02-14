@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -159,6 +160,7 @@ var HandleSocket = websocket.New(func(connection *websocket.Conn) {
 	HandshakeTimeout: 10 * time.Second,
 	ReadBufferSize:   2048,
 	WriteBufferSize:  2048,
+	Origins:          strings.Split(os.Getenv("ALLOWED_ORIGINS"), ","),
 })
 
 func Process() {

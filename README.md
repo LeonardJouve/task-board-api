@@ -12,7 +12,6 @@ Fill `.env`
 
 ## TODO
 - intl error messages
-- websocket / webserver Allowed Origins
 - Cookies configuration
 - REDIS persistance
 - docker image

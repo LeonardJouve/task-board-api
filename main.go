@@ -51,7 +51,7 @@ func main() {
 	apiGroup := app.Group("/api")
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "https://localhost:5173", // TODO
+		AllowOrigins:     os.Getenv("ALLOWED_ORIGINS"),
 		AllowHeaders:     "Origin, Content-Type, Accept, X-CSRF-Token, Authorization",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE",
 		AllowCredentials: true,
