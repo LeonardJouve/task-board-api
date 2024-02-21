@@ -15,12 +15,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/boards/",
+							"raw": "{{host}}/rest/boards/",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"boards",
 								""
 							]
@@ -34,12 +34,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/boards/1",
+							"raw": "{{host}}/rest/boards/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"boards",
 								"1"
 							]
@@ -68,12 +68,12 @@
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/boards",
+							"raw": "{{host}}/rest/boards",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"boards"
 							]
 						}
@@ -101,12 +101,12 @@
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/boards/1",
+							"raw": "{{host}}/rest/boards/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"boards",
 								"1"
 							]
@@ -120,12 +120,12 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/boards/1",
+							"raw": "{{host}}/rest/boards/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"boards",
 								"1"
 							]
@@ -139,12 +139,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/boards/1/invite?userId=1",
+							"raw": "{{host}}/rest/boards/1/invite?userId=2",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"boards",
 								"1",
 								"invite"
@@ -152,7 +152,7 @@
 							"query": [
 								{
 									"key": "userId",
-									"value": "1"
+									"value": "2"
 								}
 							]
 						}
@@ -165,12 +165,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/boards/1/leave",
+							"raw": "{{host}}/rest/boards/1/leave",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"boards",
 								"1",
 								"leave"
@@ -190,12 +190,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/columns",
+							"raw": "{{host}}/rest/columns",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"columns"
 							],
 							"query": [
@@ -215,12 +215,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/columns/1",
+							"raw": "{{host}}/rest/columns/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"columns",
 								"1"
 							]
@@ -249,12 +249,12 @@
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/columns",
+							"raw": "{{host}}/rest/columns",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"columns"
 							]
 						}
@@ -267,12 +267,12 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/columns/1",
+							"raw": "{{host}}/rest/columns/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"columns",
 								"1"
 							]
@@ -296,12 +296,12 @@
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/columns/1",
+							"raw": "{{host}}/rest/columns/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"columns",
 								"1"
 							]
@@ -315,21 +315,20 @@
 						"method": "PATCH",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/columns/2/move/?nextId=1",
+							"raw": "{{host}}/rest/columns/7/move?nextId=6",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"columns",
-								"2",
-								"move",
-								""
+								"7",
+								"move"
 							],
 							"query": [
 								{
 									"key": "nextId",
-									"value": "1"
+									"value": "6"
 								}
 							]
 						}
@@ -347,12 +346,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards",
+							"raw": "{{host}}/rest/cards",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards"
 							],
 							"query": [
@@ -372,14 +371,14 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/1",
+							"raw": "{{host}}/rest/cards/28",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards",
-								"1"
+								"28"
 							]
 						}
 					},
@@ -391,12 +390,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/1/join",
+							"raw": "{{host}}/rest/cards/1/join",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards",
 								"1",
 								"join"
@@ -411,12 +410,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/1/leave",
+							"raw": "{{host}}/rest/cards/1/leave",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards",
 								"1",
 								"leave"
@@ -431,17 +430,16 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/1/tag/1/add",
+							"raw": "{{host}}/rest/cards/2/tags/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards",
-								"1",
-								"tag",
-								"1",
-								"add"
+								"2",
+								"tags",
+								"1"
 							]
 						}
 					},
@@ -453,17 +451,16 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/1/tag/1/remove",
+							"raw": "{{host}}/rest/cards/1/tags/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards",
 								"1",
-								"tag",
-								"1",
-								"remove"
+								"tags",
+								"1"
 							]
 						}
 					},
@@ -495,12 +492,12 @@
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/cards",
+							"raw": "{{host}}/rest/cards",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards"
 							]
 						}
@@ -513,14 +510,14 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/1",
+							"raw": "{{host}}/rest/cards/29",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards",
-								"1"
+								"29"
 							]
 						}
 					},
@@ -547,12 +544,12 @@
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/cards/1",
+							"raw": "{{host}}/rest/cards/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards",
 								"1"
 							]
@@ -566,14 +563,14 @@
 						"method": "PATCH",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/cards/1/move?columnId=1&nextId=null",
+							"raw": "{{host}}/rest/cards/28/move?columnId=1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"cards",
-								"1",
+								"28",
 								"move"
 							],
 							"query": [
@@ -583,7 +580,8 @@
 								},
 								{
 									"key": "nextId",
-									"value": "null"
+									"value": "14",
+									"disabled": true
 								}
 							]
 						}
@@ -601,12 +599,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/tags",
+							"raw": "{{host}}/rest/tags",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"tags"
 							],
 							"query": [
@@ -626,12 +624,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/tags/1",
+							"raw": "{{host}}/rest/tags/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"tags",
 								"1"
 							]
@@ -665,12 +663,12 @@
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/tags",
+							"raw": "{{host}}/rest/tags",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"tags"
 							]
 						}
@@ -683,12 +681,12 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/tags/1",
+							"raw": "{{host}}/rest/tags/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"tags",
 								"1"
 							]
@@ -717,12 +715,12 @@
 							]
 						},
 						"url": {
-							"raw": "{{host}}/api/tags/1",
+							"raw": "{{host}}/rest/tags/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"tags",
 								"1"
 							]
@@ -741,12 +739,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/users/me",
+							"raw": "{{host}}/rest/users/me",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"users",
 								"me"
 							]
@@ -760,12 +758,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/users",
+							"raw": "{{host}}/rest/users",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"users"
 							]
 						}
@@ -778,12 +776,12 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{host}}/api/users/1",
+							"raw": "{{host}}/rest/users/1",
 							"host": [
 								"{{host}}"
 							],
 							"path": [
-								"api",
+								"rest",
 								"users",
 								"1"
 							]

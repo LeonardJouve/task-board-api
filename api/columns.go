@@ -153,11 +153,16 @@ func MoveColumn(c *fiber.Ctx) error {
 				"message": "invalid boardId",
 			})
 		}
+		if next.ID == column.ID {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "column id must be different from next id",
+			})
+		}
 
-		if ok := store.Execute(c, tx.Model(&models.Column{}).Where("next_id = ?", nextId).Update("next_id", &column.ID).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&models.Column{}).Where("next_id = ?", uint(nextId)).Update("next_id", &column.ID).Error); !ok {
 			return nil
 		}
-		if ok := store.Execute(c, tx.Model(&column).Update("next_id", nextId).Error); !ok {
+		if ok := store.Execute(c, tx.Model(&column).Update("next_id", uint(nextId)).Error); !ok {
 			return nil
 		}
 	}
