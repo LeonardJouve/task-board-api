@@ -13,5 +13,6 @@ Fill `.env`
 ## TODO
 - intl error messages
 - Cookies configuration
+- handle register duplicate email
 - REDIS persistance
 - docker image

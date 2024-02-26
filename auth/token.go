@@ -25,6 +25,7 @@ func createToken(c *fiber.Ctx, name string, userId uint, lifetime int) (*TokenCl
 		return nil, "", false
 	}
 
+	jwt.TimePrecision = time.Microsecond
 	claims := &TokenClaims{
 		ID:        utils.UUIDv4(),
 		Subject:   fmt.Sprint(userId),
