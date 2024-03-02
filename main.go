@@ -58,13 +58,14 @@ func main() {
 	}))
 
 	app.Use(csrf.New(csrf.Config{
-		KeyLookup:      "header:X-CSRF-Token",
 		ContextKey:     auth.CSRF_TOKEN,
 		CookieName:     auth.CSRF_TOKEN,
 		CookieDomain:   os.Getenv("HOST"),
 		CookiePath:     "/",
 		CookieSecure:   true,
 		CookieSameSite: "Lax",
+		CookieHTTPOnly: true,
+		Extractor:      auth.CsrfTokenExtractor,
 		Expiration:     time.Duration((dotenv.GetInt("CSRF_TOKEN_LIFETIME_IN_MINUTE"))) * time.Minute,
 		KeyGenerator:   utils.UUIDv4,
 		Storage: redis.New(redis.Config{

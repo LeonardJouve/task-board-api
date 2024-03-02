@@ -21,6 +21,19 @@ const (
 	TOKEN_USED    = "token_used"
 )
 
+func CsrfTokenExtractor(c *fiber.Ctx) (string, error) {
+	csrfToken, err := c.GetReqHeaders()[CSRF_TOKEN]
+	if err {
+		csrfToken = c.Cookies(CSRF_TOKEN)
+
+		if len(csrfToken) == 0 {
+			return "", errors.New("invalid csrf token")
+		}
+	}
+
+	return strings.Clone(csrfToken), nil
+}
+
 func Protect(c *fiber.Ctx) error {
 	var accessToken string
 	authorization := c.Get("Authorization")
