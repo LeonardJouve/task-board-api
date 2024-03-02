@@ -23,7 +23,7 @@ const (
 
 func CsrfTokenExtractor(c *fiber.Ctx) (string, error) {
 	csrfToken, err := c.GetReqHeaders()[CSRF_TOKEN]
-	if err {
+	if err || len(csrfToken) == 0 {
 		csrfToken = c.Cookies(CSRF_TOKEN)
 
 		if len(csrfToken) == 0 {
