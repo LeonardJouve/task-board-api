@@ -20,7 +20,7 @@ func GetUsers(c *fiber.Ctx) error {
 			return nil
 		}
 
-		tx = tx.Preload("Boards").Where("boards.id IN ?", boardIds)
+		tx = tx.Joins("INNER JOIN user_boards ON user_boards.user_id = users.id").Where("user_boards.board_id IN ?", boardIds)
 	}
 
 	if tx.Find(&users).Error != nil {
